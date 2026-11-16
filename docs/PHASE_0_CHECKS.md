@@ -23,6 +23,16 @@
 - Compose `--wait` reports the successful one-shot bootstrap exit as an error; README now uses `up -d` for the full stack.
 - `npm run lint`, `docker compose config --quiet`, and `git diff --check`: passed.
 
+## Full Docker application verification (2026-11-16)
+
+- Added default `web` and `api` services so Docker Desktop can start the full Hiveflow group after initial image creation.
+- `docker compose up -d --build`: built both application images with Node 22 and `npm ci`; the API runtime uses production dependencies and the FE uses Nginx.
+- Stopped the existing host Vite process belonging to this workspace so the container frontend could bind port 5173.
+- HTTP checks passed for Nginx `/`, `/health`, `/api/health`, and SPA fallback `/spaces/example`; direct API `/health` also returned 200.
+- `docker compose stop` followed by `docker compose start`: passed. FE/API returned 200 again; web, API, Postgres, and Redis healthchecks passed.
+- API runtime check: runs as a non-root user and has no `/app/.env` in its image. Compose supplies runtime configuration with internal service URLs.
+- `npm run lint`, `docker compose config --quiet`, and `git diff --check`: passed. Containers remain running.
+
 ## Remaining observations
 
 - Dependency audit after updating Zod and Vitest: 18 low/moderate findings remain in indirect dependencies; no high/critical findings. Remaining automatic fixes propose major upgrades, so they were not applied blindly.

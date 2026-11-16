@@ -2,24 +2,39 @@
 
 Hiveflow is a node-based image workflow prototype. **Phase 0 (scaffold)** is implemented: npm workspaces, a React/Vite/Tailwind frontend, a NestJS API with PostgreSQL connectivity, and a shared TypeScript package. The canvas is next.
 
-## Local setup
+## Run everything in Docker
 
-Requires Node 20+ (Node 22 recommended), npm 10+, Docker Engine, and Docker Compose v2. Start Docker Desktop before running Compose.
+Requires Docker Desktop (Linux containers) with Compose v2. Start Docker Desktop first. Node/npm are installed inside the build containers.
 
 ```powershell
 Copy-Item .env.example .env
-npm ci
-docker compose up -d
-npm run dev
+docker compose up -d --build
 ```
 
 Open <http://localhost:5173>. The API health endpoint is <http://localhost:3000/health> and returns `{"status":"ok","app":"Hiveflow"}` once PostgreSQL connects. MinIO's local console is at <http://localhost:9001>; credentials are in `.env`. The `minio-init` service creates the private `hiveflow-assets` bucket and exits successfully.
+
+After this first setup, use Docker Desktop → Containers → the **hiveflow** group → **Start/Stop** to run/stop the entire application, including FE and BE. Keep the containers when stopping: `docker compose stop` preserves them; `docker compose down` removes them and requires `up` to create them again.
+
+The frontend is built with Vite and served by Nginx; the backend runs the compiled NestJS app. Nginx forwards `/health` and `/api/*` to the API container. After changing source code, run `docker compose up -d --build` to refresh the images. The API waits for Postgres/Redis health and successful bucket bootstrap before the frontend starts.
 
 MinIO and its client build from pinned upstream Go source revisions because their Docker Hub images are unavailable. Docker handles the Go toolchain; you do not need Go installed locally. The first `docker compose up` can take several minutes. To rebuild explicitly, use `docker compose up --build -d`.
 
 The bootstrap container `minio-init` should show `Exited (0)` after it creates the bucket. Use `docker compose up -d` without `--wait`: Compose can report a successful one-shot bootstrap exit as an error with that flag. To wait for the long-running services explicitly, run `docker compose up -d --wait postgres redis minio`.
 
 If another PostgreSQL instance uses port 5432, set `POSTGRES_PORT=5433` in `.env` and change the port in `DATABASE_URL` to 5433 too. The container still uses port 5432 internally.
+
+`WEB_PORT` and `API_PORT` control exposed host ports (defaults 5173/3000). Inside Docker, API/database/Redis/storage connections use Compose service names; the API always listens on container port 3000. The host `DATABASE_URL` is used only for the optional local development workflow.
+
+## Optional local development with hot reload
+
+Requires Node 20+ (Node 22 recommended) and npm 10+. Stop the Docker application containers first to free the frontend/backend ports:
+
+```powershell
+docker compose stop web api
+docker compose up -d postgres redis minio minio-init
+npm ci
+npm run dev
+```
 
 `npm run dev` builds shared first, then runs shared's TypeScript watcher, Nest's watcher, and Vite concurrently. Both apps import built output from `@hiveflow/shared`. Restart Vite if adding a new shared dependency changes dependency prebundling.
 
@@ -32,14 +47,17 @@ npm run lint           ESLint dependency checks and Prettier
 npm run format         Format source/configuration
 npm test               Run workspace tests (empty suites allowed in Phase 0)
 npm run migration:run  Apply API migrations (first migration arrives in Phase 2)
-docker compose down   Stop local infrastructure, preserving named volumes
+docker compose up -d --build  Build and run the whole application
+docker compose stop          Stop all containers, preserving them for Docker Desktop Start
+docker compose start         Start existing containers
+docker compose down          Remove containers, preserving named volumes
 ```
 
 CI uses `npm ci`, then build, typecheck, lint, and tests. No graph/execution tests exist yet.
 
 ## Configuration
 
-Copy `.env.example` to root `.env`; the API and Compose read it. Never commit `.env`. Configuration changes require restarting the API.
+Copy `.env.example` to root `.env`; the API and Compose read it. Never commit `.env`. After changing container environment settings, run `docker compose up -d` to recreate affected containers. Restart `npm run dev` when using the optional host workflow.
 
 | Variable                                                                  | Purpose                                                                                   |
 | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
