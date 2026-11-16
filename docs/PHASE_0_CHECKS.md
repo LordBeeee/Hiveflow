@@ -10,7 +10,18 @@
 - `npm test`: all workspace commands passed with no test files, as expected for scaffold. This is not graph or execution coverage.
 - `docker compose config --quiet`: passed.
 - Vite HTTP smoke: the page, transformed TSX module, and prebundled shared dependency returned HTTP 200; the page title and shared runtime value contain `Hiveflow`.
-- Full infrastructure/API acceptance remains blocked: the Docker CLI is installed, but Docker Engine is unavailable. `docker desktop start` also failed because the Docker Desktop installation registry entry is absent. PostgreSQL connectivity and HTTP `/health` have therefore not been verified locally. CI includes a PostgreSQL service and an HTTP health check.
+- Infrastructure/API checks were initially blocked by an unavailable Docker Engine. The follow-up verification below resolves that gap. CI also includes a PostgreSQL service and an HTTP health check.
+
+## Docker startup fix verification (2026-11-16)
+
+- Reproduced unavailable MinIO container images; Quay also returned 401. Replaced external MinIO images with local builds from pinned upstream Go module revisions.
+- `docker compose up --build -d`: both MinIO/MC images built successfully; Postgres and Redis images pulled successfully.
+- Port 5432 was occupied by another local listener. Added configurable `POSTGRES_PORT`, then set local `.env` and its database URL to 5433.
+- `docker compose up -d`: passed; Postgres/Redis healthy, MinIO running, bucket bootstrap exits with code 0 and creates `hiveflow-assets`.
+- MinIO `/minio/health/ready`: HTTP 200.
+- Started the compiled API temporarily on port 3107 against the actual Compose PostgreSQL instance; `/health` returned HTTP 200 with `{"status":"ok","app":"Hiveflow"}`. Stopped the temporary API after checking; infrastructure remains running for `npm run dev`.
+- Compose `--wait` reports the successful one-shot bootstrap exit as an error; README now uses `up -d` for the full stack.
+- `npm run lint`, `docker compose config --quiet`, and `git diff --check`: passed.
 
 ## Remaining observations
 

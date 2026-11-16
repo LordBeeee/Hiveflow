@@ -13,3 +13,6 @@
 - Do not remove assets on node deletion because undo may restore nodes; add orphan asset cleanup in future work.
 - Use Rollup's official WASM distribution via an npm override: this Windows machine blocks the native `.node` module through Application Control, including outside the sandbox. This keeps Vite/Vitest portable without changing machine policy.
 - Use Zod 4.6.7+ and Vitest 4.1.12+ after registry audit identified security fixes missing from older major versions; Vitest 4 retains the plan's Node 20 compatibility.
+- Build local MinIO/MC containers from pinned official Go module revisions: Docker Hub repositories cannot be pulled and Quay returns 401 in this environment. Keep the existing S3 interface/Compose service names and persist data in the existing volume. Upstream community repositories are archived; reassess maintained storage before production.
+- Make the database host port configurable with `POSTGRES_PORT`; this machine already has another PostgreSQL listener on 5432, so its uncommitted `.env` uses 5433 with a matching `DATABASE_URL`.
+- Document `up -d` for the full stack: Compose `--wait` reports the successful one-shot `minio-init` exit as an error; use `--wait` only with the long-running services.
