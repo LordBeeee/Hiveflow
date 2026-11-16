@@ -12,8 +12,11 @@
   },
   "dependencies": {
     "@hiveflow/shared": "*",
+    "@xyflow/react": "^12.12.1",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "zundo": "^2.3.0",
+    "zustand": "^5.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

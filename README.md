@@ -1,6 +1,6 @@
 # Hiveflow
 
-Hiveflow is a node-based image workflow prototype. **Phase 0 (scaffold)** is implemented: npm workspaces, a React/Vite/Tailwind frontend, a NestJS API with PostgreSQL connectivity, and a shared TypeScript package. The canvas is next.
+Hiveflow is a node-based image workflow prototype. **Phase 1 (canvas)** is implemented: a React Flow canvas with Text, Image Upload, and Image Generator nodes, validated connections, pan/zoom, and undo/redo. The NestJS/PostgreSQL scaffold is ready for persistence in Phase 2.
 
 ## Run everything in Docker
 
@@ -53,7 +53,16 @@ docker compose start         Start existing containers
 docker compose down          Remove containers, preserving named volumes
 ```
 
-CI uses `npm ci`, then build, typecheck, lint, and tests. No graph/execution tests exist yet.
+CI uses `npm ci`, then build, typecheck, lint, and tests. Shared graph utilities and frontend graph history have unit tests; backend execution tests arrive with the execution phases.
+
+## Using the canvas
+
+- Click **+** in the left toolbar to add Text, Image Upload, or Image Generator nodes. Each new session starts with a Text node and an Image Generator.
+- Drag a node by its title or preview area. Drag from an output port to an input port of the same color: purple for text, green for images. Connections that duplicate a single input or create a cycle are refused.
+- Choose **Select** (`V`) to move/select nodes, or **Hand** (`H`) to pan. Hold **Space** while dragging to pan temporarily. Scroll to zoom; use the lower-right controls for zoom and Fit view.
+- **Delete/Backspace** removes selected nodes/edges. **Ctrl/Cmd+Z** and **Ctrl/Cmd+Shift+Z** undo/redo graph edits; viewport changes are excluded. Editing a textarea retains its native keyboard behavior.
+- Drop/choose an image in Image Upload for a local preview. The generator's **+** creates and connects a reference upload node. Local images stay available to undo/redo during the session.
+- This phase is session-only: refreshing resets the graph and local images. Saving comes in Phase 2; **Run** currently shows an availability notice, with actual image generation planned for Phase 3.
 
 ## Configuration
 
@@ -83,4 +92,4 @@ Image generation is not implemented in this phase. Phase 3 will default `IMAGE_P
 - `docs/DECISIONS.md`: implementation assumptions.
 - `SPACES_PLAN.md`: phase acceptance criteria and remaining prototype scope.
 
-Next: Phase 1 canvas; Phase 2 persistence; Phase 3 single-node runs; Phase 4 connected inputs; Phase 5 graph execution, caching, and cancellation.
+Next: Phase 2 persistence; Phase 3 single-node runs; Phase 4 connected inputs; Phase 5 graph execution, caching, and cancellation.

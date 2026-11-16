@@ -19,3 +19,10 @@
 - Run FE and BE inside the default Compose stack at the user's request: use multi-stage Node 22 builds, a compiled NestJS runtime with production dependencies, and Nginx for the Vite bundle and API proxy. This enables the Docker Desktop group Start button after initial setup. Keep hot reload as an optional host workflow.
 - Override host connection URLs with service-name URLs inside the API container; host port changes do not affect internal networking. Keep root `.env` out of Docker build context and supply runtime configuration through Compose.
 - Use `unless-stopped` for long-running services so they recover during grouped startup; keep bucket bootstrap idempotent and one-shot. API startup depends on the bootstrap completing successfully.
+- Phase 1 starts each session with two disconnected starter nodes (Text and Image Generator). Node numbering is derived from the current order within each type; graph IDs remain UUIDs.
+- Keep Phase 1 entirely in browser memory. The Run controls explain that execution is coming; graph persistence and provider calls remain in their planned phases.
+- Local uploads use UUID asset references in graph params and object URLs in a separate session store. Keep URLs until navigation so undo can restore replaced/deleted images; reject non-images and files larger than 20 MB locally.
+- The generator's attach button creates an Image Upload node and its reference edge in one history transaction; it uses the same local file flow as standalone uploads.
+- Track only graph nodes/edges in zundo (100 steps); keep viewport, selection, and drag previews outside history. Commit drag positions once on release. Use controlled React Flow node/edge change events for selection to avoid feedback loops from a selection observer.
+- Keep native text-field shortcuts inside inputs; handle graph Delete/Backspace and Ctrl/Cmd undo shortcuts only outside editable fields. React Flow provides temporary Space panning.
+- Add a separate strict shared test TypeScript configuration so test sources are checked but are not emitted into the shared runtime package.
