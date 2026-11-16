@@ -1,0 +1,44 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: hiveflow
+          POSTGRES_PASSWORD: hiveflow
+          POSTGRES_DB: hiveflow
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U hiveflow -d hiveflow"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://hiveflow:hiveflow@localhost:5432/hiveflow
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - name: Check API with PostgreSQL
+        shell: bash
+        run: |
+          node apps/api/dist/main.js > api.log 2>&1 &
+          api_pid=$!
+          trap 'kill "$api_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://localhost:3000/health > health.json; then
+              node -e 'const h = require("./health.json"); if (h.status !== "ok" || h.app !== "Hiveflow") process.exit(1)'
+              exit 0
+            fi
+            sleep 1
+          done
+          cat api.log
+          exit 1
