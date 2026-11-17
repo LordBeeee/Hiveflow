@@ -18,7 +18,7 @@ test('keyboard picker inserts and undoes one node, filters categories and traps 
     const search = picker.getByRole('combobox', { name: 'Search nodes' });
     await expect(search).toBeFocused();
     await search.fill('tex');
-    await expect(picker.getByRole('option')).toHaveCount(1);
+    await expect(picker.getByRole('option')).toHaveCount(2);
     await page.keyboard.press('Enter');
     await expect(picker).not.toBeVisible();
     await expect(page.getByLabel('Text #2 value', { exact: true })).toHaveCount(
@@ -55,7 +55,7 @@ test('keyboard picker inserts and undoes one node, filters categories and traps 
     ).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('ArrowDown');
     await expect(
-      picker.getByRole('option', { name: 'Image Generator', exact: true }),
+      picker.getByRole('option', { name: 'Assistant', exact: true }),
     ).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('Shift+Tab');
     await expect(
@@ -105,7 +105,7 @@ test('dropping an input on empty canvas filters compatible nodes and inserts an 
     await expect(
       picker.getByText('COMPATIBLE NODES', { exact: true }),
     ).toBeVisible();
-    await expect(picker.getByRole('option')).toHaveCount(1);
+    await expect(picker.getByRole('option')).toHaveCount(2);
     await picker.getByRole('option', { name: 'Text', exact: true }).click();
     await expect(page.getByLabel('Text #2 value', { exact: true })).toHaveCount(
       1,

@@ -2,6 +2,7 @@ import {
   nodeRegistry,
   type NodeCategory,
   type NodeType,
+  type NodeDef,
 } from '@hiveflow/shared';
 import { nodePresentations } from './presentation';
 import type { IconName } from '../canvas/Icons';
@@ -23,5 +24,6 @@ export const nodeCatalog: NodeCatalogEntry[] = Object.values(nodeRegistry)
     description: definition.description,
     keywords: definition.keywords,
     icon: nodePresentations[definition.type]?.icon ?? 'sparkles',
+    isNew: (definition as NodeDef).isNew,
   }))
   .sort((a, b) => a.label.localeCompare(b.label));

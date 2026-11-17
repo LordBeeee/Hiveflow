@@ -86,6 +86,7 @@ export function executionHash(
   type: string,
   params: Record<string, unknown>,
   resolved: ResolvedInputs,
+  registry: NodeDefinitions = nodeRegistry,
 ) {
   const inputs = Object.keys(resolved.ports)
     .sort()
@@ -100,6 +101,9 @@ export function executionHash(
   return inputHash({
     type,
     params,
+    ...(registry[type]?.executionVersion
+      ? { executionVersion: registry[type].executionVersion }
+      : {}),
     inputs,
     ...(resolved.error ? { error: resolved.error } : {}),
   });

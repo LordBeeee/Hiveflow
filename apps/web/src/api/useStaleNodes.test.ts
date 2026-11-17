@@ -4,8 +4,86 @@ import {
   executionHash,
   nodeRegistry,
   type NodeRun,
+  resolveNodeInputs,
 } from '@hiveflow/shared';
 import { computeStaleNodes } from './useStaleNodes';
+
+it('shares preset-version hashes and propagates context changes through Assistant to images', async () => {
+  const text = {
+    id: 'text',
+    type: 'text' as const,
+    params: { value: 'cabin' },
+    position: { x: 0, y: 0 },
+  };
+  const assistant = {
+    id: 'assistant',
+    type: 'assistant' as const,
+    params: { ...nodeRegistry.assistant.defaultParams },
+    position: { x: 0, y: 0 },
+  };
+  const image = {
+    id: 'image',
+    type: 'image_generator' as const,
+    params: { ...nodeRegistry.image_generator.defaultParams },
+    position: { x: 0, y: 0 },
+  };
+  const graph = {
+    ...emptyGraph(),
+    nodes: [text, assistant, image],
+    edges: [
+      {
+        id: '1',
+        source: text.id,
+        sourceHandle: 'text',
+        target: assistant.id,
+        targetHandle: 'context',
+      },
+      {
+        id: '2',
+        source: assistant.id,
+        sourceHandle: 'text',
+        target: image.id,
+        targetHandle: 'prompt',
+      },
+    ],
+  };
+  const output = { text: 'Improved cabin' };
+  const latest = {
+    assistant: {
+      output,
+      inputHash: await executionHash(
+        'assistant',
+        { ...assistant.params, model: 'mock-llm' },
+        await resolveNodeInputs(
+          graph,
+          assistant,
+          async () => output,
+          async () => null,
+        ),
+      ),
+    },
+    image: {
+      output: null,
+      inputHash: await executionHash(
+        'image_generator',
+        { ...image.params, model: 'mock-image' },
+        await resolveNodeInputs(
+          graph,
+          image,
+          async () => output,
+          async () => null,
+        ),
+      ),
+    },
+  };
+  expect(
+    await computeStaleNodes(graph, latest, latest, async () => ''),
+  ).toEqual({ assistant: false, image: false });
+  text.params.value = 'snowy cabin';
+  expect(
+    await computeStaleNodes(graph, latest, latest, async () => ''),
+  ).toEqual({ assistant: true, image: true });
+});
 
 it('propagates changed upstream prompts through an image chain and clears after rerunning', async () => {
   const graph = emptyGraph();

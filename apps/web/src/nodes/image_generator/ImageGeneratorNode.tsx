@@ -27,6 +27,9 @@ export function ImageGeneratorNode({
     (edge) => edge.target === id && edge.targetHandle === 'prompt',
   );
   const promptSource = nodes.find((node) => node.id === promptEdge?.source);
+  const sourceText = useRunStore((state) =>
+    promptSource ? state.outputs[promptSource.id]?.text : undefined,
+  );
   const sourceLabel = promptSource
     ? `${nodeRegistry[promptSource.type].label} #${nodes.filter((node) => node.type === promptSource.type).findIndex((node) => node.id === promptSource.id) + 1}`
     : 'connected Text';
@@ -186,7 +189,9 @@ export function ImageGeneratorNode({
             value={
               promptSource?.type === 'text'
                 ? String(promptSource.params.value ?? '')
-                : prompt
+                : promptEdge
+                  ? (sourceText ?? '')
+                  : prompt
             }
             readOnly={!!promptEdge}
             aria-describedby={promptEdge ? `prompt-source-${id}` : undefined}

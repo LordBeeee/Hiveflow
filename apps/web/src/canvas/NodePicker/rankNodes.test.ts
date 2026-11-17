@@ -37,7 +37,7 @@ it('ranks label prefix before substring, keywords and category with stable ties'
 it('ignores case, surrounding whitespace, composed accents and Vietnamese đ', () => {
   expect(
     rankNodes(nodeCatalog, '  TÉX  ', 'All').map((node) => node.type),
-  ).toEqual(['text']);
+  ).toEqual(['text', 'assistant']);
   expect(rankNodes(nodeCatalog, 'a\u0309nh', 'All')).toHaveLength(2);
   const entry = { ...nodeCatalog[0], label: 'Đèn Ánh Sáng' };
   expect(rankNodes([entry], 'DEN anh', 'All')).toEqual([entry]);

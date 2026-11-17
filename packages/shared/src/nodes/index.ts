@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { PortType } from '../types';
 import type { RunOutput } from '../media';
 import type { ModelKind } from '../models';
+import { ASSISTANT_PRESETS_VERSION } from '../assistant-presets';
 export type NodeCategory = 'Image' | 'Video' | 'Audio' | 'Text' | 'Utilities';
 
 export interface NodeDef<P = Record<string, unknown>> {
@@ -11,6 +12,8 @@ export interface NodeDef<P = Record<string, unknown>> {
   description: string;
   keywords: readonly string[];
   modelKind?: ModelKind;
+  executionVersion?: string;
+  isNew?: boolean;
   staticOutput?: (params: Record<string, unknown>) => RunOutput | null;
   missingOutputHint?: string;
   inputs: readonly {
@@ -47,8 +50,43 @@ export const imageGeneratorParamsSchema = z
   .strict();
 
 export type ImageGeneratorParams = z.infer<typeof imageGeneratorParamsSchema>;
+export const assistantParamsSchema = z
+  .object({
+    message: z.string().max(8000),
+    preset: z.enum([
+      'free',
+      'prompt_improver',
+      'image_to_prompt',
+      'script_writer',
+    ]),
+    model: z.string().min(1),
+    options: z
+      .record(
+        z.string(),
+        z.union([z.string(), z.number().finite(), z.boolean()]),
+      )
+      .default({}),
+  })
+  .strict();
 
 export const nodeRegistry = {
+  assistant: {
+    type: 'assistant',
+    label: 'Assistant',
+    category: 'Text',
+    description: 'Improve prompts, describe images or write a script',
+    keywords: ['assist', 'AI', 'improve', 'vision', 'script', 'trợ lý'],
+    modelKind: 'llm',
+    isNew: true,
+    executionVersion: ASSISTANT_PRESETS_VERSION,
+    inputs: [
+      { id: 'context', type: 'text', multiple: true },
+      { id: 'images', type: 'image', multiple: true },
+    ],
+    outputs: [{ id: 'text', type: 'text' }],
+    paramsSchema: assistantParamsSchema,
+    defaultParams: { message: '', preset: 'free', model: 'auto', options: {} },
+  },
   text: {
     type: 'text',
     label: 'Text',

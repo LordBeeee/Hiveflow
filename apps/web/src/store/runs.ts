@@ -105,10 +105,17 @@ export const useRunStore = create<RunState>((set) => ({
       if (
         run.spaceId !== state.spaceId ||
         run.status !== 'succeeded' ||
+        (state.nodes[run.nodeId]?.runId === run.runId &&
+          !shouldAcceptRun(state.nodes[run.nodeId], run)) ||
         !shouldAcceptRun(state.successes[run.nodeId], run)
       )
         return state;
-      return { successes: { ...state.successes, [run.nodeId]: run } };
+      return {
+        successes: { ...state.successes, [run.nodeId]: run },
+        ...(run.output
+          ? { outputs: { ...state.outputs, [run.nodeId]: run.output } }
+          : {}),
+      };
     }),
   setBatch: (batch) =>
     set((state) => {

@@ -65,7 +65,7 @@ export async function computeStaleNodes(
               ).length,
           );
         }
-        const hash = await executionHash(node.type, params, inputs);
+        const hash = await executionHash(node.type, params, inputs, registry);
         const upstream = graph.edges.some(
           (edge) =>
             edge.target === id && (stale[edge.source] || outdated[edge.source]),

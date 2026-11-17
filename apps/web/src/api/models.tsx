@@ -6,13 +6,16 @@ import {
   coerceParamsForModel,
   type NodeType,
   type NodeDef,
+  type ModelKind,
 } from '@hiveflow/shared';
 import { request } from './spaces';
-export function useModels() {
+export function useModels(kind?: ModelKind) {
   return useQuery({
-    queryKey: ['models'],
+    queryKey: ['models', kind ?? 'all'],
     queryFn: async () =>
-      availableModelSchema.array().parse(await request('/models')),
+      availableModelSchema
+        .array()
+        .parse(await request(`/models${kind ? `?kind=${kind}` : ''}`)),
     staleTime: 5000,
     refetchInterval: 15000,
   });
@@ -28,8 +31,8 @@ export function ModelControls({
   onChange: (patch: Record<string, unknown>) => void;
   onNotice: (notice: string) => void;
 }) {
-  const query = useModels();
   const definition: NodeDef = nodeRegistry[type];
+  const query = useModels(definition.modelKind);
   const entries = (query.data ?? []).filter(
     (model) => model.kind === definition.modelKind,
   );

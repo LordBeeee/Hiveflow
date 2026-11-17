@@ -442,7 +442,8 @@ textarea:focus-visible {
 .model-control > svg {
   display: none;
 }
-.generator-settings .run-button {
+.generator-settings .run-button,
+.assistant-actions .run-button {
   margin-left: auto;
   display: flex;
   gap: 4px;
@@ -1196,4 +1197,86 @@ textarea:focus-visible {
 }
 .port-audio {
   background: #efad83;
+}
+.workflow-node.assistant {
+  width: 360px;
+}
+.assistant-card {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.assistant-message {
+  min-height: 110px;
+  resize: vertical;
+  width: 100%;
+  background: transparent;
+  color: inherit;
+  border: 0;
+  outline: none;
+  font: inherit;
+  line-height: 1.5;
+}
+.assistant-preset {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: #a8ae9f;
+  gap: 12px;
+}
+.assistant-preset select {
+  background: #292e25;
+  color: #d6ddcc;
+  border: 1px solid #414936;
+  border-radius: 6px;
+  padding: 7px;
+  font: inherit;
+}
+.assistant-result-header,
+.assistant-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10px;
+  color: #a5b096;
+}
+.assistant-result-header button,
+.assistant-actions > button:not(.run-button) {
+  border: 1px solid #424c35;
+  color: #cad6b7;
+  background: transparent;
+  border-radius: 5px;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+.assistant-result-header button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.assistant-result {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 210px;
+  min-height: 100px;
+  overflow: auto;
+  margin: 0;
+  background: #1d211b;
+  border: 1px solid #333c2a;
+  border-radius: 8px;
+  padding: 12px;
+  color: #d7ddcf;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.6;
+  user-select: text;
+}
+.assistant-actions .run-button {
+  margin-left: auto;
+}
+.assistant-copy-status {
+  color: #c5d8a0;
+  font-size: 11px;
 }

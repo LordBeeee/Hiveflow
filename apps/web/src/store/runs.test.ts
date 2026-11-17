@@ -34,6 +34,34 @@ function run(sequence: string, status: NodeRun['status']): NodeRun {
   };
 }
 beforeEach(() => useRunStore.getState().reset(spaceId));
+it('recovers previous successful text after refresh of a canceled run without accepting older replacements', () => {
+  const canceled = { ...run('3', 'canceled'), nodeType: 'assistant' as const };
+  const success = {
+    ...run('2', 'succeeded'),
+    nodeType: 'assistant' as const,
+    output: { text: 'Recovered result' },
+  };
+  useRunStore.getState().merge(canceled);
+  useRunStore.getState().mergeSuccess(success);
+  useRunStore.getState().mergeSuccess({
+    ...success,
+    sequence: '1',
+    runId: run('1', 'succeeded').runId,
+    output: { text: 'Older result' },
+  });
+  expect(useRunStore.getState().nodes[canceled.nodeId].status).toBe('canceled');
+  expect(useRunStore.getState().outputs[canceled.nodeId]).toEqual({
+    text: 'Recovered result',
+  });
+  useRunStore.getState().mergeSuccess({
+    ...canceled,
+    status: 'succeeded',
+    output: { text: 'Late result' },
+  });
+  expect(useRunStore.getState().outputs[canceled.nodeId]).toEqual({
+    text: 'Recovered result',
+  });
+});
 it('keeps a newer queued run when an older run succeeds later', () => {
   useRunStore.getState().merge(run('2', 'queued'));
   useRunStore.getState().merge(run('1', 'succeeded'));
