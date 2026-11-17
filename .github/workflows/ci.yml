@@ -4,6 +4,12 @@ jobs:
   check:
     runs-on: ubuntu-latest
     services:
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 20
       postgres:
         image: postgres:16-alpine
         env:
@@ -27,6 +33,11 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
+      - name: Prepare object storage
+        run: |
+          cp .env.example .env
+          docker compose up -d --build minio
+          docker compose run --rm --build minio-init
       - run: npm run migration:run
       - name: Check API with PostgreSQL
         shell: bash
@@ -38,6 +49,7 @@ jobs:
             if curl --fail --silent http://localhost:3000/health > health.json; then
               node -e 'const h = require("./health.json"); if (h.status !== "ok" || h.app !== "Hiveflow") process.exit(1)'
               node apps/api/scripts/smoke-spaces.mjs
+              node apps/api/scripts/smoke-runs.mjs
               exit 0
             fi
             sleep 1

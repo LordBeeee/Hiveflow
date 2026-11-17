@@ -1,20 +1,30 @@
 import { useRef, useState } from 'react';
-import { useLocalAssets } from '../../store/ui';
+import { useQuery } from '@tanstack/react-query';
 import { Icon } from '../../canvas/Icons';
 import type { NodeProps } from '@xyflow/react';
-import { useGraphStore } from '../../store/graph';
 import { NodeFrame, type CanvasNode } from '../NodeFrame';
+import { executionApi, useExecution } from '../../api/execution';
+import { useRunStore } from '../../store/runs';
+
 export function ImageUploadNode({ id, data, selected }: NodeProps<CanvasNode>) {
   const input = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
-  const assetId = data.graphNode.params.assetId;
-  const asset = useLocalAssets((state) =>
-    typeof assetId === 'string' ? state.assets[assetId] : undefined,
-  );
+  const { uploadFile, retryUpload } = useExecution();
+  const upload = useRunStore((state) => state.uploads[id]);
+  const assetId =
+    typeof data.graphNode.params.assetId === 'string'
+      ? data.graphNode.params.assetId
+      : null;
+  const asset = useQuery({
+    queryKey: ['asset', assetId],
+    queryFn: () => executionApi.asset(assetId!),
+    enabled: !!assetId,
+    retry: false,
+    staleTime: Infinity,
+  });
+  const uploading = upload?.status === 'uploading';
   function choose(file?: File) {
-    if (!file) return;
-    const assetId = useLocalAssets.getState().add(file);
-    if (assetId) useGraphStore.getState().updateParams(id, { assetId });
+    if (file && !uploading) void uploadFile(id, file).catch(() => {});
   }
   return (
     <NodeFrame node={data.graphNode} number={data.number} selected={!!selected}>
@@ -22,7 +32,7 @@ export function ImageUploadNode({ id, data, selected }: NodeProps<CanvasNode>) {
         ref={input}
         className="hidden"
         type="file"
-        accept="image/*"
+        accept="image/png,image/jpeg,image/webp,image/avif,image/gif"
         aria-label={`Image Upload #${data.number} file`}
         onChange={(event) => {
           choose(event.target.files?.[0]);
@@ -32,6 +42,7 @@ export function ImageUploadNode({ id, data, selected }: NodeProps<CanvasNode>) {
       <button
         className={`upload-zone nodrag nopan ${dragOver ? 'drag-over' : ''}`}
         aria-label={`Choose image for Image Upload #${data.number}`}
+        disabled={uploading}
         onClick={() => input.current?.click()}
         onDragOver={(event) => {
           event.preventDefault();
@@ -44,27 +55,45 @@ export function ImageUploadNode({ id, data, selected }: NodeProps<CanvasNode>) {
           choose(event.dataTransfer.files[0]);
         }}
       >
-        {asset ? (
-          <img src={asset.url} alt={asset.name} draggable={false} />
+        {asset.data ? (
+          <img
+            src={asset.data.url}
+            alt="Uploaded reference"
+            draggable={false}
+          />
         ) : (
           <>
             <span className="upload-icon">
               <Icon name="image" size={25} />
             </span>
             <strong>
-              {assetId ? 'Choose the local image again' : 'Drop an image here'}
+              {asset.isError
+                ? 'Image unavailable — choose it again'
+                : 'Drop an image here'}
             </strong>
-            <span>
-              {assetId
-                ? 'Local previews reset when you reload or reopen a space'
-                : 'or click to browse · up to 20 MB'}
-            </span>
+            <span>PNG, JPEG, WebP, AVIF or GIF</span>
           </>
         )}
+        {uploading && (
+          <div className="run-progress" role="status">
+            <span className="loading-spinner" />
+            <span>Uploading image…</span>
+          </div>
+        )}
       </button>
+      {upload?.status === 'failed' && (
+        <div className="run-error nodrag nopan" role="alert">
+          <span>{upload.error}</span>
+          <button onClick={() => void retryUpload(id).catch(() => {})}>
+            Retry upload
+          </button>
+        </div>
+      )}
       <div className="node-card-footer">
-        <span className="filename">
-          {asset?.name ?? 'Your reference starts here'}
+        <span>
+          {asset.data
+            ? `${asset.data.width} × ${asset.data.height} · Saved image`
+            : 'Choose a reference image'}
         </span>
         <span className="image-port-label">
           Image <span>●</span>

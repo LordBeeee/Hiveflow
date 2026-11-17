@@ -6,7 +6,8 @@ import {
   type NodeType,
 } from '@hiveflow/shared';
 import { useGraphStore } from '../store/graph';
-import { useUIStore } from '../store/ui';
+import { useExecution } from '../api/execution';
+import { useRunStore } from '../store/runs';
 import { Icon } from '../canvas/Icons';
 
 export type CanvasNode = Node<
@@ -18,14 +19,6 @@ const nodeIcons = {
   image_upload: 'image',
   image_generator: 'sparkles',
 } as const;
-export function runNode() {
-  useUIStore
-    .getState()
-    .notify(
-      'Image generation is coming soon. You can arrange and connect nodes in this preview.',
-    );
-}
-
 export function NodeFrame({
   node,
   number,
@@ -38,6 +31,11 @@ export function NodeFrame({
   children: React.ReactNode;
 }) {
   const definition: NodeDef<Record<string, unknown>> = nodeRegistry[node.type];
+  const { runNode } = useExecution();
+  const run = useRunStore((state) => state.nodes[node.id]);
+  const requesting = useRunStore((state) => state.requesting[node.id]);
+  const busy =
+    requesting || run?.status === 'queued' || run?.status === 'running';
   return (
     <div
       className={`workflow-node ${node.type} ${selected ? 'is-selected' : ''}`}
@@ -49,7 +47,7 @@ export function NodeFrame({
         className="node-floating-toolbar nodrag nopan"
       >
         {node.type === 'image_generator' && (
-          <button onClick={runNode}>
+          <button disabled={busy} onClick={() => void runNode(node.id)}>
             <Icon name="play" size={14} />
             Run
           </button>

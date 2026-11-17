@@ -48,13 +48,14 @@ npm run format         Format source/configuration
 npm test               Run shared, web, and API unit tests
 npm run migration:run  Apply TypeORM migrations manually (build shared first)
 node apps/api/scripts/smoke-spaces.mjs  Test CRUD/concurrency against a running API and DB
+node apps/api/scripts/smoke-runs.mjs    Test uploads, runs, SSE and recovery with API/DB/Redis/MinIO
 docker compose up -d --build  Build and run the whole application
 docker compose stop          Stop all containers, preserving them for Docker Desktop Start
 docker compose start         Start existing containers
 docker compose down          Remove containers, preserving named volumes
 ```
 
-CI uses `npm ci`, then build, typecheck, lint, and unit tests. It applies migrations and checks API CRUD, graph validation, ownership, and simultaneous writes against PostgreSQL. The integration smoke script uses `DATABASE_URL` from `.env` (or the environment) and `API_BASE_URL` (default `http://127.0.0.1:3000`); it creates and cleans up only its own fixture IDs.
+CI uses `npm ci`, then build, typecheck, lint, and unit tests. It prepares PostgreSQL, Redis and MinIO, applies migrations, and runs both integration scripts. Scripts use root `.env` (environment values take precedence) and `API_BASE_URL` (default `http://127.0.0.1:3000`); they create and clean up only their own fixtures. Run the execution smoke check with `MOCK_FAILURE_RATE=0` and the default provider timeout.
 
 ## Saved Spaces
 
@@ -70,28 +71,33 @@ Graph writes validate node params, port compatibility, existing endpoints, dupli
 - Drag a node by its title or preview area. Drag from an output port to an input port of the same color: purple for text, green for images. Connections that duplicate a single input or create a cycle are refused.
 - Choose **Select** (`V`) to move/select nodes, or **Hand** (`H`) to pan. Hold **Space** while dragging to pan temporarily. Scroll to zoom; use the lower-right controls for zoom and Fit view.
 - **Delete/Backspace** removes selected nodes/edges. **Ctrl/Cmd+Z** and **Ctrl/Cmd+Shift+Z** undo/redo graph edits; viewport changes are excluded. Editing a textarea retains its native keyboard behavior.
-- Drop/choose an image in Image Upload for a local preview. The generator's **+** creates and connects a reference upload node. Local images stay available to undo/redo during the session.
-- Graphs, names, node params, edges, and viewport now survive refresh. Local image previews still reset on reload/reopening: choose the file again until API uploads arrive in Phase 3. Binary image data is never stored in PostgreSQL. **Run** currently shows an availability notice, with actual generation planned for Phase 3.
+- Drop/choose an image in Image Upload. The generator's **+** creates and connects a reference upload node. Uploads accept PNG, JPEG, WebP, AVIF and GIF, up to `MAX_UPLOAD_MB` and 16 megapixels. The API validates the decoded format, normalizes orientation and stores a metadata-free PNG in MinIO. Animated uploads use the first frame. Existing local-only references from earlier phases must be selected again.
+- Type a prompt directly in Image Generator, set count/ratio/resolution, and click **Run**. It waits for uploads and autosave, queues one execution, and displays the mock PNGs after roughly 2–4 seconds plus image processing. Errors offer **Retry**. Running status and outputs survive refresh; SSE reconnects and history snapshots recover missed events.
+- Graphs, names, node params, edges, viewport, uploaded images and generated results survive refresh. Only image metadata is stored in PostgreSQL; bytes live in MinIO. Save-as-copy duplicates uploaded references into the new Space. Execution history/results remain with the original Space.
+
+Phase 3 runs individual nodes using their own saved params. Connected Text and image references are editable and persistent, but their values will flow through edges in Phase 4. Enter the generator prompt locally for now. Run-all, caching, staleness and cancellation follow in Phase 5.
 
 ## Configuration
 
 Copy `.env.example` to root `.env`; the API and Compose read it. Never commit `.env`. After changing container environment settings, run `docker compose up -d` to recreate affected containers. Restart `npm run dev` when using the optional host workflow.
 
-| Variable                                                                  | Purpose                                                                                   |
-| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `API_PORT`, `WEB_ORIGIN`                                                  | API listen port and permitted browser origin                                              |
-| `DATABASE_URL`                                                            | API PostgreSQL connection string                                                          |
-| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`                       | Local Compose database initialization                                                     |
-| `REDIS_URL`                                                               | Queue connection, used from Phase 3                                                       |
-| `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`                                  | Local MinIO administrator credentials                                                     |
-| `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET` | Object storage configuration, wired in Phase 3; keep credentials aligned with local MinIO |
-| `IMAGE_PROVIDER`, `MOCK_FAILURE_RATE`                                     | Provider selection and failure injection, wired in Phase 3                                |
-| `MAX_UPLOAD_MB`, `PROVIDER_TIMEOUT_MS`                                    | Upload/provider limits, wired in Phase 3                                                  |
-| `SPACE_RUN_CONCURRENCY`, `WORKER_CONCURRENCY`                             | Queue limits, wired in Phase 5                                                            |
+| Variable                                                                  | Purpose                                                                                     |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `API_PORT`, `WEB_ORIGIN`                                                  | API listen port and permitted browser origin                                                |
+| `DATABASE_URL`                                                            | API PostgreSQL connection string                                                            |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`                       | Local Compose database initialization                                                       |
+| `REDIS_URL`                                                               | BullMQ queue connection                                                                     |
+| `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`                                  | Local MinIO administrator credentials                                                       |
+| `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET` | Object storage; keep credentials aligned with local MinIO                                   |
+| `IMAGE_PROVIDER`, `MOCK_FAILURE_RATE`                                     | `mock` provider; injected failure probability 0–1                                           |
+| `MAX_UPLOAD_MB`, `PROVIDER_TIMEOUT_MS`                                    | Upload MB limit (1–100, default 20) and executor timeout (default 120000 ms)                |
+| `RUN_RECOVERY_TIMEOUT_MS`                                                 | Lost-worker cutoff; default provider timeout + 30000 ms, minimum provider timeout + 5000 ms |
+| `WORKER_CONCURRENCY`                                                      | Global queue worker parallelism (default 6)                                                 |
+| `SPACE_RUN_CONCURRENCY`                                                   | Reserved for Phase 5 per-space execution limits                                             |
 
 The optional Vite development server proxies `/health` and `/api/*` to port 3000. If changing the host API port for that workflow, update `apps/web/vite.config.ts` too. Docker's Nginx proxy uses the fixed internal API port. No frontend secrets are exposed.
 
-Image generation is not implemented in this phase. Phase 3 will default `IMAGE_PROVIDER=mock`; real providers will require an adapter registered by that environment value, without vendor logic in executors.
+`IMAGE_PROVIDER=mock` generates deterministic gradient PNGs with the prompt printed on them, without an external AI account. To implement another provider, follow `apps/api/src/providers/custom-image.provider.example.ts`, implement `ImageProvider`, and register its factory in `RunsModule` before changing the environment value. Unknown provider names fail startup clearly. Keep credentials and vendor logic in the adapter. To exercise Retry, set `MOCK_FAILURE_RATE=1`, recreate API, run a node, then restore `0`, recreate API and click Retry. Provider timeouts and lost workers also produce retryable errors.
 
 ## Layout and roadmap
 
@@ -101,4 +107,4 @@ Image generation is not implemented in this phase. Phase 3 will default `IMAGE_P
 - `docs/DECISIONS.md`: implementation assumptions.
 - `SPACES_PLAN.md`: phase acceptance criteria and remaining prototype scope.
 
-Next: Phase 3 single-node runs; Phase 4 connected inputs; Phase 5 graph execution, caching, and cancellation.
+Completed through Phase 3 single-node runs. Next: Phase 4 connected inputs; Phase 5 graph execution, caching, and cancellation. See `docs/PHASE_3_CHECKS.md` for verification evidence.

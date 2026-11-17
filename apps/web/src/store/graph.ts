@@ -40,7 +40,10 @@ interface GraphState extends SpaceGraph {
   addNode: (type: NodeType, position: Point) => string;
   updateParams: (id: string, patch: Record<string, unknown>) => void;
   connect: (candidate: ConnectionCandidate) => boolean;
-  addReference: (targetId: string, assetId: string) => void;
+  addReference: (
+    targetId: string,
+    assetId: string | null,
+  ) => string | undefined;
   select: (nodes: string[], edges: string[]) => void;
   previewPositions: (positions: Record<string, Point>) => void;
   commitPositions: (positions: Record<string, Point>) => void;
@@ -125,6 +128,7 @@ export const useGraphStore = create<GraphState>()(
           selectedNodes: [id],
           selectedEdges: [],
         }));
+        return id;
       },
       select: (selectedNodes, selectedEdges) => {
         const state = get();

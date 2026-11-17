@@ -6,11 +6,22 @@ import { spacesApi } from '../api/spaces';
 import { AutosaveController, type SaveState } from '../api/autosave';
 import { graphSnapshot, loadGraph, useGraphStore } from '../store/graph';
 import { SpaceCanvas } from '../canvas/SpaceCanvas';
+import { ExecutionContext } from '../api/execution';
+import { useExecutionActions } from '../api/useExecutionActions';
+import { useRunEvents } from '../api/useRunEvents';
+import { copySpaceWithAssets } from '../api/copySpace';
 
 function SpaceEditor({ space }: { space: SpaceDocument }) {
   const [name, setName] = useState(space.name);
   const nameRef = useRef(space.name);
   const controllerRef = useRef<AutosaveController | null>(null);
+  const execution = useExecutionActions(
+    space.id,
+    () =>
+      controllerRef.current?.flush() ??
+      Promise.reject(new Error('Space is not ready')),
+  );
+  useRunEvents(space.id);
   const [save, setSave] = useState<SaveState>({
     status: 'saved',
     dirty: false,
@@ -55,7 +66,7 @@ function SpaceEditor({ space }: { space: SpaceDocument }) {
           });
       });
       const beforeUnload = (event: BeforeUnloadEvent) => {
-        if (controller.getState().dirty) {
+        if (controller.getState().dirty || execution.hasPendingUploads()) {
           event.preventDefault();
           event.returnValue = '';
         }
@@ -90,6 +101,7 @@ function SpaceEditor({ space }: { space: SpaceDocument }) {
     setWorking(true);
     setActionError(null);
     try {
+      await execution.waitForUploads();
       await controllerRef.current?.flush();
       window.location.assign('/');
     } catch (error) {
@@ -102,13 +114,11 @@ function SpaceEditor({ space }: { space: SpaceDocument }) {
     setWorking(true);
     setActionError(null);
     try {
-      const result = await spacesApi.create({
-        name: `${nameRef.current.trim() || 'Untitled space'} (copy)`.slice(
-          0,
-          120,
-        ),
-        graph: graphSnapshot(),
-      });
+      await execution.waitForUploads();
+      const result = await copySpaceWithAssets(
+        `${(nameRef.current.trim() || 'Untitled space').slice(0, 113)} (copy)`,
+        graphSnapshot(),
+      );
       controllerRef.current?.dispose();
       window.location.assign(`/spaces/${result.id}`);
     } catch (error) {
@@ -138,82 +148,84 @@ function SpaceEditor({ space }: { space: SpaceDocument }) {
     conflict: 'Conflict',
   };
   return (
-    <ReactFlowProvider>
-      <SpaceCanvas
-        spaceName={name}
-        onNameChange={changeName}
-        onBack={() => void back()}
-        headerEnd={
-          <>
-            <span
-              role="status"
-              className={`save-indicator save-${save.status}`}
-              title={save.message}
-            >
-              <span />
-              {labels[save.status]}
-            </span>
-            {save.status === 'error' && (
-              <button
-                className="header-button"
-                onClick={() =>
-                  void controllerRef.current?.flush().catch(() => {})
-                }
+    <ExecutionContext.Provider value={execution.actions}>
+      <ReactFlowProvider>
+        <SpaceCanvas
+          spaceName={name}
+          onNameChange={changeName}
+          onBack={() => void back()}
+          headerEnd={
+            <>
+              <span
+                role="status"
+                className={`save-indicator save-${save.status}`}
+                title={save.message}
               >
-                Retry save
-              </button>
-            )}
-            <span className="avatar">H</span>
-          </>
-        }
-        notice={
-          save.status === 'conflict' ||
-          save.status === 'error' ||
-          actionError ? (
-            <div
-              className={`save-notice ${save.status === 'conflict' ? 'conflict' : ''}`}
-              role="alert"
-            >
-              <div>
-                <strong>
-                  {save.status === 'conflict'
-                    ? 'This space changed in another tab.'
-                    : 'Your changes have not been saved.'}
-                </strong>
-                <p>
-                  {actionError ??
-                    (save.status === 'conflict'
-                      ? 'Your edits are kept here. Reload the saved version or save your work as a new space.'
-                      : save.message)}
-                </p>
-              </div>
-              <div className="save-notice-actions">
-                <button disabled={working} onClick={() => void copy()}>
-                  Save as copy
+                <span />
+                {labels[save.status]}
+              </span>
+              {save.status === 'error' && (
+                <button
+                  className="header-button"
+                  onClick={() =>
+                    void controllerRef.current?.flush().catch(() => {})
+                  }
+                >
+                  Retry save
                 </button>
-                {save.status === 'conflict' && (
-                  <button
-                    disabled={working}
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          'Replace your local edits with the saved version?',
-                        )
-                      ) {
-                        controllerRef.current?.dispose();
-                        window.location.reload();
-                      }
-                    }}
-                  >
-                    Reload saved version
+              )}
+              <span className="avatar">H</span>
+            </>
+          }
+          notice={
+            save.status === 'conflict' ||
+            save.status === 'error' ||
+            actionError ? (
+              <div
+                className={`save-notice ${save.status === 'conflict' ? 'conflict' : ''}`}
+                role="alert"
+              >
+                <div>
+                  <strong>
+                    {save.status === 'conflict'
+                      ? 'This space changed in another tab.'
+                      : 'Your changes have not been saved.'}
+                  </strong>
+                  <p>
+                    {actionError ??
+                      (save.status === 'conflict'
+                        ? 'Your edits are kept here. Reload the saved version or save your work as a new space.'
+                        : save.message)}
+                  </p>
+                </div>
+                <div className="save-notice-actions">
+                  <button disabled={working} onClick={() => void copy()}>
+                    Save as copy
                   </button>
-                )}
+                  {save.status === 'conflict' && (
+                    <button
+                      disabled={working}
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            'Replace your local edits with the saved version?',
+                          )
+                        ) {
+                          controllerRef.current?.dispose();
+                          window.location.reload();
+                        }
+                      }}
+                    >
+                      Reload saved version
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ) : null
-        }
-      />
-    </ReactFlowProvider>
+            ) : null
+          }
+        />
+      </ReactFlowProvider>
+    </ExecutionContext.Provider>
   );
 }
 

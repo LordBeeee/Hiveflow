@@ -15,7 +15,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request(
+export async function request(
   path: string,
   options: RequestInit = {},
 ): Promise<unknown> {
@@ -23,7 +23,12 @@ async function request(
   try {
     response = await fetch(`/api${path}`, {
       ...options,
-      headers: { 'Content-Type': 'application/json', ...options.headers },
+      headers: {
+        ...(options.body instanceof FormData
+          ? {}
+          : { 'Content-Type': 'application/json' }),
+        ...options.headers,
+      },
       signal: options.signal ?? AbortSignal.timeout(15000),
     });
   } catch {

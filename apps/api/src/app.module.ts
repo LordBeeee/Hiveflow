@@ -6,6 +6,8 @@ import { HealthController } from './health.controller';
 import { validateEnvironment } from './config';
 import { databaseOptions } from './database/options';
 import { SpacesModule } from './spaces/spaces.module';
+import { AssetsModule } from './assets/assets.module';
+import { RunsModule } from './runs/runs.module';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { SpacesModule } from './spaces/spaces.module';
         databaseOptions(config.getOrThrow<string>('DATABASE_URL')),
     }),
     SpacesModule,
+    AssetsModule,
+    RunsModule,
   ],
   controllers: [HealthController],
 })
