@@ -1,9 +1,13 @@
 import { z } from 'zod';
 import type { NodeType, PortType } from '../types';
+export type NodeCategory = 'Image' | 'Video' | 'Audio' | 'Text' | 'Utilities';
 
 export interface NodeDef<P> {
   type: NodeType;
   label: string;
+  category: NodeCategory;
+  description: string;
+  keywords: string[];
   inputs: {
     id: string;
     type: PortType;
@@ -37,6 +41,9 @@ export const nodeRegistry = {
   text: {
     type: 'text',
     label: 'Text',
+    category: 'Text',
+    description: 'Write a prompt or an idea',
+    keywords: ['prompt', 'write', 'idea', 'note', 'văn bản'],
     inputs: [],
     outputs: [{ id: 'text', type: 'text' }],
     paramsSchema: textParamsSchema,
@@ -45,6 +52,9 @@ export const nodeRegistry = {
   image_upload: {
     type: 'image_upload',
     label: 'Image Upload',
+    category: 'Image',
+    description: 'Bring your own reference image',
+    keywords: ['reference', 'upload', 'file', 'photo', 'ảnh'],
     inputs: [],
     outputs: [{ id: 'image', type: 'image' }],
     paramsSchema: imageUploadParamsSchema,
@@ -53,6 +63,9 @@ export const nodeRegistry = {
   image_generator: {
     type: 'image_generator',
     label: 'Image Generator',
+    category: 'Image',
+    description: 'Turn a prompt into an image',
+    keywords: ['generate', 'create', 'art', 'render', 'ảnh'],
     inputs: [
       { id: 'prompt', type: 'text' },
       { id: 'references', type: 'image', multiple: true },

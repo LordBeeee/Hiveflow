@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import {
   Background,
   BackgroundVariant,
@@ -14,7 +14,6 @@ import {
 import { useStore } from 'zustand';
 import {
   APP_NAME,
-  nodeRegistry,
   validateConnection,
   type NodeType,
   type Point,
@@ -25,38 +24,42 @@ import { ImageGeneratorNode } from '../nodes/image_generator/ImageGeneratorNode'
 import { ImageUploadNode } from '../nodes/image_upload/ImageUploadNode';
 import { TextNode } from '../nodes/text/TextNode';
 import type { CanvasNode } from '../nodes/NodeFrame';
-import { Icon, type IconName } from './Icons';
+import { Icon } from './Icons';
+import { NodePicker } from './NodePicker/NodePicker';
 
 const nodeTypes = {
   text: TextNode,
   image_upload: ImageUploadNode,
   image_generator: ImageGeneratorNode,
 };
-const addOptions: { type: NodeType; icon: IconName; description: string }[] = [
-  {
-    type: 'image_generator',
-    icon: 'sparkles',
-    description: 'Turn a prompt into an image',
-  },
-  { type: 'text', icon: 'text', description: 'Write a prompt or an idea' },
-  {
-    type: 'image_upload',
-    icon: 'image',
-    description: 'Bring your own reference',
-  },
-];
-
-function useShortcuts() {
+function useShortcuts(openPicker: () => void) {
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (
+        event.defaultPrevented ||
+        event.isComposing ||
+        useUIStore.getState().menuOpen
+      )
+        return;
+      if (
         event.target instanceof HTMLElement &&
         event.target.closest(
-          'input, textarea, select, [contenteditable="true"]',
+          'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]',
         )
       )
         return;
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+      if (
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        event.key.toLowerCase() === 'n'
+      ) {
+        event.preventDefault();
+        openPicker();
+      } else if (
+        (event.metaKey || event.ctrlKey) &&
+        event.key.toLowerCase() === 'z'
+      ) {
         event.preventDefault();
         if (event.shiftKey) redo();
         else undo();
@@ -84,7 +87,7 @@ function useShortcuts() {
     };
     window.addEventListener('keydown', keydown);
     return () => window.removeEventListener('keydown', keydown);
-  }, []);
+  }, [openPicker]);
 }
 
 export function SpaceCanvas({
@@ -112,7 +115,9 @@ export function SpaceCanvas({
     (state) => state.futureStates.length > 0,
   );
   const flow = useReactFlow<CanvasNode>();
-  useShortcuts();
+  const addButton = useRef<HTMLButtonElement>(null);
+  const openPicker = useCallback(() => setMenuOpen(true), [setMenuOpen]);
+  useShortcuts(openPicker);
   useEffect(() => {
     if (!message) return;
     const timer = window.setTimeout(() => notify(null), 5000);
@@ -328,11 +333,13 @@ export function SpaceCanvas({
         </div>
         <div className="left-tools" role="toolbar" aria-label="Canvas tools">
           <button
+            ref={addButton}
             className={`add-node-button ${menuOpen ? 'active' : ''}`}
             aria-label="Add node"
             aria-expanded={menuOpen}
-            title="Add node"
-            onClick={() => setMenuOpen(!menuOpen)}
+            aria-haspopup="dialog"
+            title="Add node (N)"
+            onClick={openPicker}
           >
             <Icon name="plus" size={23} />
           </button>
@@ -374,21 +381,11 @@ export function SpaceCanvas({
           </button>
         </div>
         {menuOpen && (
-          <div className="add-node-menu" role="menu" aria-label="Node types">
-            <div className="menu-heading">ADD TO YOUR SPACE</div>
-            {addOptions.map(({ type, icon, description }) => (
-              <button key={type} role="menuitem" onClick={() => addNode(type)}>
-                <span className={`menu-node-icon icon-${type}`}>
-                  <Icon name={icon} size={20} />
-                </span>
-                <span>
-                  <strong>{nodeRegistry[type].label}</strong>
-                  <small>{description}</small>
-                </span>
-                <Icon name="plus" size={15} />
-              </button>
-            ))}
-          </div>
+          <NodePicker
+            onInsert={addNode}
+            onClose={() => setMenuOpen(false)}
+            returnFocus={addButton}
+          />
         )}
         {state.nodes.length === 0 && (
           <div className="empty-canvas">

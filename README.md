@@ -70,7 +70,7 @@ Graph writes validate node params, port compatibility, existing endpoints, dupli
 
 ## Using the canvas
 
-- Click **+** in the left toolbar to add Text, Image Upload, or Image Generator nodes. Each new Space starts with a Text node and an Image Generator.
+- Click **+** in the left toolbar or press **N** to open the node picker. Search by name/keyword, filter by Image or Text, navigate with **↑/↓**, and press **Enter** to insert. Search ignores case and diacritics. **Esc** closes the picker and restores focus to **+**. Insertion uses the current viewport with an offset for repeated additions; **Ctrl/Cmd+Z** undoes one insertion. N is ignored while typing in text fields or holding Ctrl/Cmd/Alt. Each new Space starts with a Text node and an Image Generator.
 - Drag a node by its title or preview area. Drag from an output port to an input port of the same color: purple for text, green for images. Connections that duplicate a single input or create a cycle are refused.
 - Choose **Select** (`V`) to move/select nodes, or **Hand** (`H`) to pan. Hold **Space** while dragging to pan temporarily. Scroll to zoom; use the lower-right controls for zoom and Fit view.
 - **Delete/Backspace** removes selected nodes/edges. **Ctrl/Cmd+Z** and **Ctrl/Cmd+Shift+Z** undo/redo graph edits; viewport changes are excluded. Editing a textarea retains its native keyboard behavior.
@@ -121,5 +121,6 @@ The optional Vite development server proxies `/health` and `/api/*` to port 3000
 - `packages/shared`: strict TypeScript types and schemas consumed by both apps.
 - `docs/DECISIONS.md`: implementation assumptions.
 - `SPACES_PLAN.md`: phase acceptance criteria and remaining prototype scope.
+- `NODES_PLAN.md`: continuation for node picker, platform generalization and additional media nodes.
 
-Phases 0–5 of the prototype are implemented. See `docs/PHASE_3_CHECKS.md`, `docs/PHASE_4_CHECKS.md` and `docs/PHASE_5_CHECKS.md` for verification evidence. The default provider remains a mock. Production work includes real authentication/provider integration, shared event/rate-limit infrastructure for multiple API replicas and orphan-object cleanup.
+Phases 0–6 are implemented. Next is Phase 7 platform generalization, followed by Assistant, Voiceover, Video Generator and cost guards/real providers in Phases 8–11. See `docs/PHASE_3_CHECKS.md` through `docs/PHASE_6_CHECKS.md` for verification evidence. The default provider remains a mock. Production work includes real authentication, shared event/rate-limit infrastructure for multiple API replicas and orphan-object cleanup.

@@ -12,7 +12,8 @@ export type IconName =
   | 'minus'
   | 'fit'
   | 'chevron'
-  | 'close';
+  | 'close'
+  | 'search';
 const paths: Record<IconName, React.ReactNode> = {
   plus: <path d="M12 5v14M5 12h14" />,
   minus: <path d="M5 12h14" />,
@@ -58,6 +59,12 @@ const paths: Record<IconName, React.ReactNode> = {
   fit: <path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5M8 8h8v8H8z" />,
   chevron: <path d="m7 10 5 5 5-5" />,
   close: <path d="m6 6 12 12M6 18 18 6" />,
+  search: (
+    <>
+      <circle cx="10.5" cy="10.5" r="6.5" />
+      <path d="m16 16 5 5" />
+    </>
+  ),
 };
 export function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
   return (
