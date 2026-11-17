@@ -71,6 +71,7 @@ Graph writes validate node params, port compatibility, existing endpoints, dupli
 ## Using the canvas
 
 - Click **+** in the left toolbar or press **N** to open the node picker. Search by name/keyword, filter by Image or Text, navigate with **↑/↓**, and press **Enter** to insert. Search ignores case and diacritics. **Esc** closes the picker and restores focus to **+**. Insertion uses the current viewport with an offset for repeated additions; **Ctrl/Cmd+Z** undoes one insertion. N is ignored while typing in text fields or holding Ctrl/Cmd/Alt. Each new Space starts with a Text node and an Image Generator.
+- Drag from an input or output port onto empty canvas to open a picker containing only compatible node types. Choose a node to insert it at the drop point and connect its first valid port automatically. One Undo removes both the node and its edge. Escape dismisses this picker; opening with N/plus afterward restores the full catalog.
 - Drag a node by its title or preview area. Drag from an output port to an input port of the same color: purple for text, green for images. Connections that duplicate a single input or create a cycle are refused.
 - Choose **Select** (`V`) to move/select nodes, or **Hand** (`H`) to pan. Hold **Space** while dragging to pan temporarily. Scroll to zoom; use the lower-right controls for zoom and Fit view.
 - **Delete/Backspace** removes selected nodes/edges. **Ctrl/Cmd+Z** and **Ctrl/Cmd+Shift+Z** undo/redo graph edits; viewport changes are excluded. Editing a textarea retains its native keyboard behavior.

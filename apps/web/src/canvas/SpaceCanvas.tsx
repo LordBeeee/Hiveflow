@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import {
   Background,
   BackgroundVariant,
@@ -15,6 +22,9 @@ import { useStore } from 'zustand';
 import {
   APP_NAME,
   validateConnection,
+  connectionForNewNode,
+  nodeRegistry,
+  type ConnectionOrigin,
   type NodeType,
   type Point,
 } from '@hiveflow/shared';
@@ -26,6 +36,7 @@ import { TextNode } from '../nodes/text/TextNode';
 import type { CanvasNode } from '../nodes/NodeFrame';
 import { Icon } from './Icons';
 import { NodePicker } from './NodePicker/NodePicker';
+import { nodeCatalog } from '../nodes/catalog';
 
 const nodeTypes = {
   text: TextNode,
@@ -116,7 +127,15 @@ export function SpaceCanvas({
   );
   const flow = useReactFlow<CanvasNode>();
   const addButton = useRef<HTMLButtonElement>(null);
-  const openPicker = useCallback(() => setMenuOpen(true), [setMenuOpen]);
+  const [pickerConnection, setPickerConnection] = useState<{
+    origin: ConnectionOrigin;
+    position: Point;
+    anchor: Point;
+  } | null>(null);
+  const openPicker = useCallback(() => {
+    setPickerConnection(null);
+    setMenuOpen(true);
+  }, [setMenuOpen]);
   useShortcuts(openPicker);
   useEffect(() => {
     if (!message) return;
@@ -203,9 +222,32 @@ export function SpaceCanvas({
     }).valid;
   }, []);
   const onConnectEnd: OnConnectEnd = useCallback(
-    (_event, connection) => {
+    (event, connection) => {
+      if (connection.isValid) return;
       if (
-        connection.isValid ||
+        connection.fromNode &&
+        connection.fromHandle?.id &&
+        !connection.toNode &&
+        event.target instanceof Element &&
+        event.target.closest('.react-flow__pane')
+      ) {
+        const point =
+          'changedTouches' in event ? event.changedTouches[0] : event;
+        if (!point) return;
+        const anchor = { x: point.clientX, y: point.clientY };
+        setPickerConnection({
+          origin: {
+            nodeId: connection.fromNode.id,
+            handleId: connection.fromHandle.id,
+            handleType: connection.fromHandle.type,
+          },
+          position: flow.screenToFlowPosition(anchor),
+          anchor,
+        });
+        setMenuOpen(true);
+        return;
+      }
+      if (
         !connection.fromNode ||
         !connection.toNode ||
         !connection.fromHandle ||
@@ -223,9 +265,21 @@ export function SpaceCanvas({
       });
       if (!result.valid) notify(result.error);
     },
-    [notify],
+    [notify, flow, setMenuOpen],
   );
   function addNode(type: NodeType) {
+    if (pickerConnection) {
+      const added = state.addConnectedNode(
+        type,
+        pickerConnection.position,
+        pickerConnection.origin,
+      );
+      if (!added)
+        notify('This port is no longer available. Reconnect and try again.');
+      setMenuOpen(false);
+      setPickerConnection(null);
+      return;
+    }
     const position = flow.screenToFlowPosition({
       x: window.innerWidth / 2 - 160,
       y: window.innerHeight / 2 - 100,
@@ -310,7 +364,6 @@ export function SpaceCanvas({
           maxZoom={2}
           connectionRadius={28}
           onPaneClick={() => {
-            setMenuOpen(false);
             state.select([], []);
           }}
           proOptions={{ hideAttribution: true }}
@@ -383,8 +436,25 @@ export function SpaceCanvas({
         {menuOpen && (
           <NodePicker
             onInsert={addNode}
-            onClose={() => setMenuOpen(false)}
+            onClose={() => {
+              setMenuOpen(false);
+              setPickerConnection(null);
+            }}
             returnFocus={addButton}
+            anchor={pickerConnection?.anchor}
+            catalog={
+              pickerConnection
+                ? nodeCatalog.filter((node) =>
+                    connectionForNewNode(state, pickerConnection.origin, {
+                      id: 'node-picker-preview',
+                      type: node.type,
+                      position: pickerConnection.position,
+                      params: { ...nodeRegistry[node.type].defaultParams },
+                    }),
+                  )
+                : nodeCatalog
+            }
+            compatibleOnly={!!pickerConnection}
           />
         )}
         {state.nodes.length === 0 && (
@@ -392,7 +462,7 @@ export function SpaceCanvas({
             <Icon name="sparkles" size={32} />
             <h2>A fresh space for your next idea.</h2>
             <p>Start with a prompt, a reference, or a little imagination.</p>
-            <button onClick={() => setMenuOpen(true)}>
+            <button onClick={openPicker}>
               <Icon name="plus" size={16} />
               Add your first node
             </button>

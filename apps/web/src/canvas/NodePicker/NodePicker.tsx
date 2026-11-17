@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type RefObject } from 'react';
-import type { NodeCategory, NodeType } from '@hiveflow/shared';
+import type { NodeCategory, NodeType, Point } from '@hiveflow/shared';
 import { nodeCatalog, type NodeCatalogEntry } from '../../nodes/catalog';
 import { Icon } from '../Icons';
 import { rankNodes, type CategoryFilter } from './rankNodes';
@@ -17,11 +17,15 @@ export function NodePicker({
   onClose,
   returnFocus,
   catalog = nodeCatalog,
+  anchor,
+  compatibleOnly = false,
 }: {
   onInsert: (type: NodeType) => void;
   onClose: () => void;
   returnFocus: RefObject<HTMLButtonElement>;
   catalog?: readonly NodeCatalogEntry[];
+  anchor?: Point;
+  compatibleOnly?: boolean;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -52,6 +56,14 @@ export function NodePicker({
     <dialog
       ref={dialog}
       className="node-picker"
+      style={
+        anchor
+          ? {
+              left: `clamp(12px, ${anchor.x}px, calc(100vw - 380px))`,
+              top: `clamp(82px, ${anchor.y}px, calc(100dvh - 430px))`,
+            }
+          : undefined
+      }
       aria-label="Add a node"
       onCancel={(event) => {
         event.preventDefault();
@@ -150,7 +162,9 @@ export function NodePicker({
           </button>
         ))}
       </div>
-      <div className="node-picker-section">NODES</div>
+      <div className="node-picker-section">
+        {compatibleOnly ? 'COMPATIBLE NODES' : 'NODES'}
+      </div>
       <ul
         id={listId}
         role="listbox"

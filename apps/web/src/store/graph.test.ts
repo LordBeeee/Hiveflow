@@ -117,6 +117,38 @@ describe('graph history', () => {
     expect(useGraphStore.getState().nodes).toHaveLength(2);
     expect(useGraphStore.getState().edges).toHaveLength(0);
   });
+  it('inserts at the drop point and connects in one undo step after validation', () => {
+    const position = { x: 1023, y: 456 };
+    const id = useGraphStore.getState().addConnectedNode('text', position, {
+      nodeId: initialGraph.nodes[1].id,
+      handleId: 'prompt',
+      handleType: 'target',
+    });
+    expect(id).toBeDefined();
+    expect(
+      useGraphStore.getState().nodes.find((node) => node.id === id)?.position,
+    ).toEqual(position);
+    expect(useGraphStore.getState().edges[0]).toMatchObject({
+      source: id,
+      target: initialGraph.nodes[1].id,
+      targetHandle: 'prompt',
+    });
+    expect(useGraphStore.temporal.getState().pastStates).toHaveLength(1);
+    expect(
+      useGraphStore.getState().addConnectedNode('text', position, {
+        nodeId: initialGraph.nodes[1].id,
+        handleId: 'prompt',
+        handleType: 'target',
+      }),
+    ).toBeUndefined();
+    expect(useGraphStore.temporal.getState().pastStates).toHaveLength(1);
+    undo();
+    expect(useGraphStore.getState().nodes).toHaveLength(2);
+    expect(useGraphStore.getState().edges).toHaveLength(0);
+    redo();
+    expect(useGraphStore.getState().nodes).toHaveLength(3);
+    expect(useGraphStore.getState().edges).toHaveLength(1);
+  });
 
   it('bounds image count and restores the previous value on undo', () => {
     const id = initialGraph.nodes[1].id;

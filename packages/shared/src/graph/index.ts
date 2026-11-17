@@ -1,8 +1,41 @@
 import { nodeRegistry, type NodeDef } from '../nodes';
-import type { GraphEdge, SpaceGraph } from '../types';
+import type { GraphEdge, GraphNode, SpaceGraph } from '../types';
 
 type Graph = Pick<SpaceGraph, 'nodes' | 'edges'>;
 export type ConnectionCandidate = Omit<GraphEdge, 'id'>;
+export interface ConnectionOrigin {
+  nodeId: string;
+  handleId: string;
+  handleType: 'source' | 'target';
+}
+export function connectionForNewNode(
+  graph: Graph,
+  origin: ConnectionOrigin,
+  node: GraphNode,
+): ConnectionCandidate | undefined {
+  if (graph.nodes.some((existing) => existing.id === node.id)) return;
+  const definition: NodeDef<Record<string, unknown>> = nodeRegistry[node.type];
+  const ports =
+    origin.handleType === 'source' ? definition.inputs : definition.outputs;
+  const proposed = { nodes: [...graph.nodes, node], edges: graph.edges };
+  for (const port of ports) {
+    const candidate =
+      origin.handleType === 'source'
+        ? {
+            source: origin.nodeId,
+            sourceHandle: origin.handleId,
+            target: node.id,
+            targetHandle: port.id,
+          }
+        : {
+            source: node.id,
+            sourceHandle: port.id,
+            target: origin.nodeId,
+            targetHandle: origin.handleId,
+          };
+    if (validateConnection(proposed, candidate).valid) return candidate;
+  }
+}
 export type ConnectionValidation =
   { valid: true } | { valid: false; error: string };
 

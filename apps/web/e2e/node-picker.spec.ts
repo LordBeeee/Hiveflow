@@ -72,3 +72,57 @@ test('keyboard picker inserts and undoes one node, filters categories and traps 
     if (spaceId) await request.delete(`/api/spaces/${spaceId}`);
   }
 });
+test('dropping an input on empty canvas filters compatible nodes and inserts an atomic connection', async ({
+  page,
+  request,
+}) => {
+  let spaceId: string | undefined;
+  try {
+    await page.goto('/');
+    await page
+      .getByLabel('New space name')
+      .fill(`E2E edge picker ${Date.now()}`);
+    await page.getByRole('button', { name: 'New space', exact: true }).click();
+    await expect(page).toHaveURL(/\/spaces\/[a-f0-9-]+$/);
+    spaceId = new URL(page.url()).pathname.split('/').pop();
+    const from = page.getByLabel('Image Generator #1 prompt input', {
+      exact: true,
+    });
+    await expect(from).toBeVisible();
+    const bounds = (await from.boundingBox())!;
+    const point = { x: 1110, y: 615 };
+    await page.mouse.move(
+      bounds.x + bounds.width / 2,
+      bounds.y + bounds.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(point.x, point.y, { steps: 15 });
+    await page.mouse.up();
+    const picker = page.getByRole('dialog', { name: 'Add a node' });
+    await expect(
+      picker.getByRole('combobox', { name: 'Search nodes' }),
+    ).toBeFocused();
+    await expect(
+      picker.getByText('COMPATIBLE NODES', { exact: true }),
+    ).toBeVisible();
+    await expect(picker.getByRole('option')).toHaveCount(1);
+    await picker.getByRole('option', { name: 'Text', exact: true }).click();
+    await expect(page.getByLabel('Text #2 value', { exact: true })).toHaveCount(
+      1,
+    );
+    await expect(page.locator('.react-flow__edge')).toHaveCount(1);
+    const nodeBounds = (await page
+      .locator('.react-flow__node')
+      .filter({ has: page.getByLabel('Text #2 value', { exact: true }) })
+      .boundingBox())!;
+    expect(nodeBounds.x).toBeCloseTo(point.x, 0);
+    expect(nodeBounds.y).toBeCloseTo(point.y, 0);
+    await page.keyboard.press('Control+z');
+    await expect(page.getByLabel('Text #2 value', { exact: true })).toHaveCount(
+      0,
+    );
+    await expect(page.locator('.react-flow__edge')).toHaveCount(0);
+  } finally {
+    if (spaceId) await request.delete(`/api/spaces/${spaceId}`);
+  }
+});

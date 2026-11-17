@@ -3,6 +3,8 @@ import { temporal } from 'zundo';
 import {
   nodeRegistry,
   validateConnection,
+  connectionForNewNode,
+  type ConnectionOrigin,
   type ConnectionCandidate,
   type GraphNode,
   type NodeType,
@@ -38,6 +40,11 @@ interface GraphState extends SpaceGraph {
   selectedEdges: string[];
   dragPositions: Record<string, Point>;
   addNode: (type: NodeType, position: Point) => string;
+  addConnectedNode: (
+    type: NodeType,
+    position: Point,
+    origin: ConnectionOrigin,
+  ) => string | undefined;
   updateParams: (id: string, patch: Record<string, unknown>) => void;
   connect: (candidate: ConnectionCandidate) => boolean;
   addReference: (
@@ -87,6 +94,23 @@ export const useGraphStore = create<GraphState>()(
             return parsed.success ? { ...node, params: parsed.data } : node;
           }),
         })),
+      addConnectedNode: (type, position, origin) => {
+        const node: GraphNode = {
+          id: crypto.randomUUID(),
+          type,
+          position,
+          params: { ...nodeRegistry[type].defaultParams },
+        };
+        const connection = connectionForNewNode(get(), origin, node);
+        if (!connection) return;
+        set((state) => ({
+          nodes: [...state.nodes, node],
+          edges: [...state.edges, { ...connection, id: crypto.randomUUID() }],
+          selectedNodes: [node.id],
+          selectedEdges: [],
+        }));
+        return node.id;
+      },
       connect: (candidate) => {
         if (!validateConnection(get(), candidate).valid) return false;
         set((state) => ({
