@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { HealthController } from './health.controller';
 import { validateEnvironment } from './config';
 import { databaseOptions } from './database/options';
+import { SpacesModule } from './spaces/spaces.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { databaseOptions } from './database/options';
       useFactory: (config: ConfigService) =>
         databaseOptions(config.getOrThrow<string>('DATABASE_URL')),
     }),
+    SpacesModule,
   ],
   controllers: [HealthController],
 })

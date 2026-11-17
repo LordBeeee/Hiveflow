@@ -51,8 +51,14 @@ export function ImageUploadNode({ id, data, selected }: NodeProps<CanvasNode>) {
             <span className="upload-icon">
               <Icon name="image" size={25} />
             </span>
-            <strong>Drop an image here</strong>
-            <span>or click to browse · up to 20 MB</span>
+            <strong>
+              {assetId ? 'Choose the local image again' : 'Drop an image here'}
+            </strong>
+            <span>
+              {assetId
+                ? 'Local previews reset when you reload or reopen a space'
+                : 'or click to browse · up to 20 MB'}
+            </span>
           </>
         )}
       </button>

@@ -6,7 +6,13 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
-    proxy: { '/health': 'http://localhost:3000' },
+    proxy: {
+      '/health': 'http://localhost:3000',
+      '/api': {
+        target: 'http://localhost:3000',
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
   },
   optimizeDeps: { include: ['@hiveflow/shared'] },
   build: { commonjsOptions: { include: [/node_modules/, /shared[\\/]dist/] } },

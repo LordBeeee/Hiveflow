@@ -15,17 +15,21 @@ export interface NodeDef<P> {
   defaultParams: P;
 }
 
-export const textParamsSchema = z.object({ value: z.string() });
-export const imageUploadParamsSchema = z.object({
-  assetId: z.uuid().nullable(),
-});
-export const imageGeneratorParamsSchema = z.object({
-  prompt: z.string(),
-  count: z.number().int().min(1).max(4),
-  model: z.string().min(1),
-  aspectRatio: z.enum(['1:1', '16:9', '9:16', '4:3', '3:4']),
-  resolution: z.enum(['1K', '2K', '4K']),
-});
+export const textParamsSchema = z.object({ value: z.string() }).strict();
+export const imageUploadParamsSchema = z
+  .object({
+    assetId: z.uuid().nullable(),
+  })
+  .strict();
+export const imageGeneratorParamsSchema = z
+  .object({
+    prompt: z.string(),
+    count: z.number().int().min(1).max(4),
+    model: z.string().min(1),
+    aspectRatio: z.enum(['1:1', '16:9', '9:16', '4:3', '3:4']),
+    resolution: z.enum(['1K', '2K', '4K']),
+  })
+  .strict();
 
 export type ImageGeneratorParams = z.infer<typeof imageGeneratorParamsSchema>;
 
@@ -74,6 +78,9 @@ export function normalizeNodeParams(
   const fields: Record<string, z.ZodType> = definition.paramsSchema.shape;
   const result: Record<string, unknown> = { ...definition.defaultParams };
   const warnings: string[] = [];
+  for (const key of Object.keys(params)) {
+    if (!(key in fields)) warnings.push(`Unknown ${type}.${key}; ignored`);
+  }
   for (const key of Object.keys(fields)) {
     const parsed = fields[key].safeParse(params[key]);
     if (parsed.success) result[key] = parsed.data;

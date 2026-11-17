@@ -194,3 +194,21 @@ export function redo() {
   useGraphStore.setState({ dragPositions: {} });
   useGraphStore.temporal.getState().redo();
 }
+
+export function graphSnapshot(): SpaceGraph {
+  const { nodes, edges, viewport } = useGraphStore.getState();
+  return { schemaVersion: 1, nodes, edges, viewport };
+}
+
+export function loadGraph(graph: SpaceGraph): void {
+  const history = useGraphStore.temporal.getState();
+  history.pause();
+  useGraphStore.setState({
+    ...graph,
+    selectedNodes: [],
+    selectedEdges: [],
+    dragPositions: {},
+  });
+  history.clear();
+  history.resume();
+}

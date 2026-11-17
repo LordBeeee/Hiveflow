@@ -25,7 +25,7 @@ COPY --from=build --chown=node:node /app/packages/shared/package.json ./packages
 COPY --from=build --chown=node:node /app/packages/shared/dist ./packages/shared/dist
 USER node
 EXPOSE 3000
-CMD ["node", "apps/api/dist/main.js"]
+CMD ["sh", "-c", "node apps/api/dist/database/migrate.js && exec node apps/api/dist/main.js"]
 
 FROM nginx:stable-alpine AS web
 COPY docker/web/default.conf /etc/nginx/conf.d/default.conf

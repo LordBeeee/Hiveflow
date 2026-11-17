@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { initialGraph, redo, undo, useGraphStore } from './graph';
+import { initialGraph, loadGraph, redo, undo, useGraphStore } from './graph';
 
 beforeEach(() => {
   useGraphStore.setState({
@@ -12,6 +12,20 @@ beforeEach(() => {
 });
 
 describe('graph history', () => {
+  it('loads a saved document with its viewport and resets prior history/selection', () => {
+    useGraphStore.getState().addNode('text', { x: 10, y: 10 });
+    const saved = {
+      ...structuredClone(initialGraph),
+      viewport: { x: -10, y: 80, zoom: 0.7 },
+    };
+    loadGraph(saved);
+    expect(useGraphStore.getState().nodes).toEqual(saved.nodes);
+    expect(useGraphStore.getState().viewport).toEqual(saved.viewport);
+    expect(useGraphStore.getState().selectedNodes).toEqual([]);
+    expect(useGraphStore.temporal.getState().pastStates).toHaveLength(0);
+    undo();
+    expect(useGraphStore.getState().nodes).toEqual(saved.nodes);
+  });
   it('does not notify subscribers again when React Flow repeats the same selection', () => {
     let updates = 0;
     const unsubscribe = useGraphStore.subscribe(() => {

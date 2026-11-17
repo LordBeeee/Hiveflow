@@ -27,6 +27,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
+      - run: npm run migration:run
       - name: Check API with PostgreSQL
         shell: bash
         run: |
@@ -36,6 +37,7 @@ jobs:
           for attempt in {1..30}; do
             if curl --fail --silent http://localhost:3000/health > health.json; then
               node -e 'const h = require("./health.json"); if (h.status !== "ok" || h.app !== "Hiveflow") process.exit(1)'
+              node apps/api/scripts/smoke-spaces.mjs
               exit 0
             fi
             sleep 1

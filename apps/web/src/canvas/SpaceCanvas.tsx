@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import {
   Background,
   BackgroundVariant,
@@ -87,7 +87,19 @@ function useShortcuts() {
   }, []);
 }
 
-export function SpaceCanvas() {
+export function SpaceCanvas({
+  spaceName = 'Untitled space',
+  onNameChange,
+  onBack,
+  headerEnd,
+  notice,
+}: {
+  spaceName?: string;
+  onNameChange?: (name: string) => void;
+  onBack?: () => void;
+  headerEnd?: ReactNode;
+  notice?: ReactNode;
+}) {
   const state = useGraphStore();
   const { mode, menuOpen, setMode, setMenuOpen, message, notify } =
     useUIStore();
@@ -228,21 +240,43 @@ export function SpaceCanvas() {
           <span className="brand-dot">.</span>
         </a>
         <span className="header-divider" />
-        <span className="header-breadcrumb">Spaces</span>
+        <button
+          className="header-breadcrumb"
+          onClick={onBack}
+          aria-label="Back to spaces"
+        >
+          Spaces
+        </button>
         <span className="breadcrumb-slash">/</span>
-        <span className="space-name">Untitled space</span>
+        {onNameChange ? (
+          <input
+            className="space-name-input"
+            aria-label="Space name"
+            value={spaceName}
+            placeholder="Untitled space"
+            maxLength={120}
+            onChange={(event) => onNameChange(event.target.value)}
+          />
+        ) : (
+          <span className="space-name">{spaceName}</span>
+        )}
         <div className="header-end">
-          <span className="local-indicator">
-            <span />
-            Local session
-          </span>
-          <span className="avatar">H</span>
+          {headerEnd ?? (
+            <>
+              <span className="local-indicator">
+                <span />
+                Local session
+              </span>
+              <span className="avatar">H</span>
+            </>
+          )}
         </div>
       </header>
       <main
         className={`canvas-shell mode-${mode}`}
         aria-label="Workflow canvas"
       >
+        {notice}
         <ReactFlow<CanvasNode>
           nodes={nodes}
           edges={edges}
@@ -368,8 +402,8 @@ export function SpaceCanvas() {
           </div>
         )}
         <div className="canvas-bottom-left">
-          <span className="phase-chip">CANVAS PREVIEW</span>
-          <span>Session only · saving comes next</span>
+          <span className="phase-chip">SPACE</span>
+          <span>Autosave on</span>
         </div>
         <div className="canvas-bottom-center">
           <kbd>Space</kbd>

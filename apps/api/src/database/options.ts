@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import type { DataSourceOptions } from 'typeorm';
+import { SpaceEntity } from '../spaces/space.entity';
 
 export function databaseOptions(url: string): DataSourceOptions {
   return {
@@ -7,7 +8,7 @@ export function databaseOptions(url: string): DataSourceOptions {
     url,
     synchronize: false,
     migrationsRun: false,
-    entities: [],
+    entities: [SpaceEntity],
     migrations: [join(__dirname, 'migrations/*{.ts,.js}')],
   };
 }

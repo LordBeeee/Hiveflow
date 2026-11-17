@@ -12,3 +12,4 @@ export type HealthResponse = z.infer<typeof healthResponseSchema>;
 export * from './types';
 export * from './nodes';
 export * from './graph';
+export * from './spaces';

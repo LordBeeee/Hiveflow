@@ -101,3 +101,20 @@ export function topoSort(graph: Graph): string[][] {
   if (processed !== ids.length) throw new Error('Graph contains a cycle');
   return levels;
 }
+
+// PostgreSQL jsonb does not preserve object key order.
+export function stableStringify(input: unknown): string {
+  const serialized = JSON.stringify(input, (_key, value: unknown) => {
+    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      const object = value as Record<string, unknown>;
+      return Object.fromEntries(
+        Object.keys(object)
+          .sort()
+          .map((key) => [key, object[key]]),
+      );
+    }
+    return value;
+  });
+  if (serialized === undefined) throw new Error('Expected a JSON value');
+  return serialized;
+}
