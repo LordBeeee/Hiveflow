@@ -69,7 +69,49 @@ export const assistantParamsSchema = z
   })
   .strict();
 
+export const voiceoverParamsSchema = z
+  .object({
+    script: z.string().max(5000),
+    model: z.string().min(1),
+    voice: z.string().min(1),
+    language: z.string().min(1),
+    speed: z
+      .number()
+      .min(0.75)
+      .max(1.5)
+      .refine(
+        (value) => Math.abs(value * 20 - Math.round(value * 20)) < 1e-8,
+        'Speed must use steps of 0.05',
+      ),
+    options: z
+      .record(
+        z.string(),
+        z.union([z.string(), z.number().finite(), z.boolean()]),
+      )
+      .default({}),
+  })
+  .strict();
 export const nodeRegistry = {
+  voiceover: {
+    type: 'voiceover',
+    label: 'Voiceover',
+    category: 'Audio',
+    description: 'Turn a script into an audio track',
+    keywords: ['voice', 'tts', 'narration', 'speech', 'giọng nói'],
+    modelKind: 'tts',
+    isNew: true,
+    inputs: [{ id: 'script', type: 'text' }],
+    outputs: [{ id: 'audio', type: 'audio' }],
+    paramsSchema: voiceoverParamsSchema,
+    defaultParams: {
+      script: '',
+      model: 'auto',
+      voice: 'calm',
+      language: 'auto',
+      speed: 1,
+      options: {},
+    },
+  },
   assistant: {
     type: 'assistant',
     label: 'Assistant',

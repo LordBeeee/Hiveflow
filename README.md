@@ -52,6 +52,7 @@ node apps/api/scripts/smoke-runs.mjs    Test uploads, runs, SSE and recovery wit
 node apps/api/scripts/smoke-batches.mjs Test scheduling, cache, cancellation and concurrency
 node apps/api/scripts/smoke-models.mjs  Test model availability, validation and run provenance
 node apps/api/scripts/smoke-assistant.mjs Test Assistant dataflow, vision, cache and cancellation
+node apps/api/scripts/smoke-voiceover.mjs Test Voiceover workflow, WAV delivery, cache and cancellation
 npm exec -w @hiveflow/web -- playwright install chromium  Install the E2E browser once
 npm run test:e2e -w @hiveflow/web   Run the browser execution smoke check
 docker compose up -d --build  Build and run the whole application
@@ -60,7 +61,7 @@ docker compose start         Start existing containers
 docker compose down          Remove containers, preserving named volumes
 ```
 
-CI uses `npm ci`, then build, typecheck, lint, and unit tests. It prepares PostgreSQL, Redis and MinIO, applies migrations, runs all five API integration scripts, and installs Chromium for the Playwright smoke test. Scripts use root `.env` (environment values take precedence) and `API_BASE_URL` (default `http://127.0.0.1:3000`); they create and clean up only their own fixtures. Run execution checks with `MOCK_FAILURE_RATE=0` and the default provider timeout. E2E uses `E2E_BASE_URL` (default `http://127.0.0.1:5173`), reuses a running Docker web app locally, or starts Vite against an already running API in CI. Its UI-created Space is removed afterward; object garbage collection follows the prototype's deferred cleanup policy.
+CI uses `npm ci`, then build, typecheck, lint, and unit tests. It prepares PostgreSQL, Redis and MinIO, applies migrations, runs all six API integration scripts, and installs Chromium for the Playwright smoke test. Scripts use root `.env` (environment values take precedence) and `API_BASE_URL` (default `http://127.0.0.1:3000`); they create and clean up only their own fixtures. Run execution checks with `MOCK_FAILURE_RATE=0` and the default provider timeout. E2E uses `E2E_BASE_URL` (default `http://127.0.0.1:5173`), reuses a running Docker web app locally, or starts Vite against an already running API in CI. Its UI-created Space is removed afterward; object garbage collection follows the prototype's deferred cleanup policy.
 
 ## Saved Spaces
 
@@ -126,7 +127,7 @@ The optional Vite development server proxies `/health` and `/api/*` to port 3000
 - `SPACES_PLAN.md`: phase acceptance criteria and remaining prototype scope.
 - `NODES_PLAN.md`: continuation for node picker, platform generalization and additional media nodes.
 
-Phases 0–8 are implemented. Next are Voiceover, Video Generator and cost guards/real providers in Phases 9–11. See `docs/PHASE_3_CHECKS.md` through `docs/PHASE_8_CHECKS.md` for verification evidence. The default provider remains a mock. Production work includes real authentication, shared event/rate-limit infrastructure for multiple API replicas and orphan-object cleanup.
+Phases 0–9 are implemented. Next are Video Generator and cost guards/real providers in Phases 10–11. See `docs/PHASE_3_CHECKS.md` through `docs/PHASE_9_CHECKS.md` for verification evidence. The default provider remains a mock. Production work includes real authentication, shared event/rate-limit infrastructure for multiple API replicas and orphan-object cleanup.
 
 ## Models and platform (Phase 7)
 
@@ -147,7 +148,7 @@ Additional configuration:
 
 Provider/kind limits add to existing Space/global limits. Capacity-blocked jobs remain queued. Retries honor Retry-After, cancellation and accepted-task guards. There are no external provider calls or new dependencies in this phase.
 
-The platform understands text/image/audio/video ports and output metadata. Audio/video storage accepts bounded bytes or streams with MIME signature checks; user uploads remain image-only. Stream buffering is size-bounded here; multipart streaming, playback/Range and video scheduling arrive in Phase 10. Mock TTS/video catalog registrations reserve their contracts; their nodes and executable providers arrive in Phases 9–10. The mock LLM is executable through Assistant.
+The platform understands text/image/audio/video ports and output metadata. Audio/video storage accepts bounded bytes or streams with MIME signature checks; user uploads remain image-only. Stream buffering is size-bounded here; multipart streaming, playback/Range and video scheduling arrive in Phase 10. The mock video catalog registration reserves its contract until Phase 10. Mock LLM and TTS are executable through Assistant and Voiceover.
 
 ## Assistant (Phase 8)
 
@@ -158,3 +159,13 @@ Connect uploaded/generated images to **images** for vision models. Mock Assistan
 Results are read-only, selectable and scrollable, with a Copy button. Failed clipboard permission shows a manual-copy hint. Connect Assistant's purple **text** output to Image Generator's prompt and use **Run all** to execute Text → Assistant → Image Generator in dependency order. Cache hits, stale propagation, cancellation, refresh recovery and previous successful output retention work as for image nodes.
 
 Assistant currently returns one completed response, with no token streaming. Stored output is capped at 20,000 characters. Preset system prompts live in `packages/shared/src/assistant-presets.ts`; bump `ASSISTANT_PRESETS_VERSION` whenever they change. That registry execution version participates in the same FE/API hash. Repeated inputs intentionally reuse the previous LLM result, even though a real LLM may be nondeterministic; use **Force rerun** to request a fresh completion. The mock remains deterministic after Force rerun. No new dependencies, environment variables or database migration are needed for Phase 8.
+
+## Voiceover (Phase 9)
+
+Search **voice** or choose **Audio → Voiceover** in the picker. Write a script (up to 5,000 characters), select the model, voice, language and speed, then Run. Speed uses steps of 0.05 from 0.75× to 1.50×, within the selected model's range. Voice/language choices come from that model's capabilities. Changing the model adjusts unsupported settings in one Undo step; **Mock Narrator** exercises this with a narrator voice, English and a narrower speed range.
+
+Connect Text or Assistant's purple text output to **script**. The connected value overrides the preserved local script and disables local editing; disconnect to restore it. Empty or oversized connected scripts fail clearly rather than falling back or silently truncating. For a complete workflow, connect Text → Assistant (**Script writer**) → Voiceover and use Run all.
+
+The completed audio appears in a native player with duration and Download audio. Cache, Force rerun, stale propagation, cancel and refresh recovery work as for other generating nodes. Audio metadata is stored in PostgreSQL; WAV bytes live in MinIO. Downloads carry `audio/wav` and a `.wav` filename.
+
+**The mock creates soft tone patterns, not spoken narration.** It writes valid 16 kHz, mono, 16-bit PCM WAV directly in Node, without another package or external TTS account. Duration approximates word count ÷ 2.5 ÷ speed, with a minimum of 0.2 seconds and a maximum of five minutes. Tone patterns depend on script/voice/language/model so input changes are audible. Words are counted by whitespace; language selection is metadata for this mock, not pronunciation. Voice Studio is an unavailable custom-adapter example. Real speech providers remain Phase 11 behind cost guards; HTTP Range and multipart streaming remain Phase 10. No new environment variable, migration or dependency was added.

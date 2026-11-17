@@ -51,7 +51,7 @@ test('keyboard picker inserts and undoes one node, filters categories and traps 
     await picker.getByRole('button', { name: 'All', exact: true }).click();
     await page.keyboard.press('ArrowUp');
     await expect(
-      picker.getByRole('option', { name: 'Text', exact: true }),
+      picker.getByRole('option', { name: 'Voiceover', exact: true }),
     ).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('ArrowDown');
     await expect(

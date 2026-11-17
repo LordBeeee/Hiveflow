@@ -179,6 +179,36 @@ export const modelCatalog: readonly ModelDefinition[] = [
     options: [],
     costUnits: 0,
   },
+  {
+    id: 'mock-tts-narration',
+    kind: 'tts',
+    provider: 'mock',
+    providerModelId: 'mock-tts-narration',
+    label: 'Mock Narrator',
+    status: 'active',
+    capabilities: {
+      voices: ['narrator'],
+      languages: ['en'],
+      speed: { min: 0.8, max: 1.25, default: 1 },
+    },
+    options: [],
+    costUnits: 0,
+  },
+  {
+    id: 'voice-studio',
+    kind: 'tts',
+    provider: 'custom',
+    providerModelId: 'voice-studio',
+    label: 'Voice Studio (custom adapter)',
+    status: 'active',
+    capabilities: {
+      voices: ['studio'],
+      languages: ['en'],
+      speed: { min: 0.75, max: 1.5, default: 1 },
+    },
+    options: [],
+    costUnits: 1,
+  },
 ];
 export function findModel(id: string, catalog = modelCatalog) {
   return catalog.find(

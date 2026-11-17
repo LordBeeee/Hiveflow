@@ -8,6 +8,8 @@ import { InputResolver } from '../executors/input-resolver';
 import { ImageUploadExecutor } from '../executors/image-upload.executor';
 import { ImageGeneratorExecutor } from '../executors/image-generator.executor';
 import { AssistantExecutor } from '../executors/assistant.executor';
+import { VoiceoverExecutor } from '../executors/voiceover.executor';
+import { MockTtsProvider } from '../providers/mock-tts.provider';
 import { MockLlmProvider } from '../providers/mock-llm.provider';
 import { ProviderRegistry } from '../providers/provider-registry';
 import { ModelsService, ModelsController } from '../providers/models.service';
@@ -49,6 +51,7 @@ import { ExecutorRegistry } from '../executors/executor-registry';
     ImageUploadExecutor,
     ImageGeneratorExecutor,
     AssistantExecutor,
+    VoiceoverExecutor,
     {
       provide: ProviderRegistry,
       inject: [ConfigService],
@@ -60,8 +63,8 @@ import { ExecutorRegistry } from '../executors/executor-registry';
         const registry = new ProviderRegistry();
         registry.register('image', 'mock', new MockImageProvider(config));
         registry.register('llm', 'mock', new MockLlmProvider(config));
-        for (const kind of ['tts', 'video'] as const)
-          registry.register(kind, 'mock', { id: 'mock' });
+        registry.register('tts', 'mock', new MockTtsProvider(config));
+        registry.register('video', 'mock', { id: 'mock' });
         return registry;
       },
     },

@@ -53,6 +53,7 @@ jobs:
               node apps/api/scripts/smoke-batches.mjs
               node apps/api/scripts/smoke-models.mjs
               node apps/api/scripts/smoke-assistant.mjs
+              node apps/api/scripts/smoke-voiceover.mjs
               npx playwright install --with-deps chromium
               npm run test:e2e -w @hiveflow/web
               exit 0
