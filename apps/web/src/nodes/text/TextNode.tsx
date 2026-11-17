@@ -1,9 +1,15 @@
+import { nodeRegistry } from '@hiveflow/shared';
 import type { NodeProps } from '@xyflow/react';
 import { useGraphStore } from '../../store/graph';
 import { NodeFrame, type CanvasNode } from '../NodeFrame';
 export function TextNode({ id, data, selected }: NodeProps<CanvasNode>) {
   return (
-    <NodeFrame node={data.graphNode} number={data.number} selected={!!selected}>
+    <NodeFrame
+      icon="text"
+      node={data.graphNode}
+      number={data.number}
+      selected={!!selected}
+    >
       <div className="text-card-label">PROMPT / TEXT</div>
       <textarea
         aria-label={`Text #${data.number} value`}
@@ -25,3 +31,9 @@ export function TextNode({ id, data, selected }: NodeProps<CanvasNode>) {
     </NodeFrame>
   );
 }
+
+export const nodeUI = {
+  type: nodeRegistry.text.type,
+  component: TextNode,
+  icon: 'text' as const,
+};

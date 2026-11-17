@@ -2,9 +2,8 @@ import { ConfigService } from '@nestjs/config';
 import type { Repository } from 'typeorm';
 import type { SpacesService } from '../spaces/spaces.service';
 import type { NodeRunQueue } from '../queue/node-run.queue';
-import type { TextExecutor } from '../executors/text.executor';
-import type { ImageUploadExecutor } from '../executors/image-upload.executor';
-import type { ImageGeneratorExecutor } from '../executors/image-generator.executor';
+import type { ExecutorRegistry } from '../executors/executor-registry';
+import type { ModelsService } from '../providers/models.service';
 import { RunsService } from './runs.service';
 import type { NodeRunEntity } from './node-run.entity';
 import { RunEvents } from './run-events';
@@ -26,6 +25,8 @@ function setup(claimed = true, running = 0) {
     output: null,
     error: null,
     provider: null,
+    model: null,
+    providerKind: null,
     cacheHit: false,
     prepared: true,
     level: null,
@@ -74,7 +75,7 @@ function setup(claimed = true, running = 0) {
     }),
   };
   const queue = { enqueue: jest.fn().mockResolvedValue(undefined) };
-  const resolver = { resolve: jest.fn().mockResolvedValue({ references: [] }) };
+  const resolver = { resolve: jest.fn().mockResolvedValue({ ports: {} }) };
   const cache = { find: jest.fn().mockResolvedValue(null) };
   const service = new RunsService(
     repo as unknown as Repository<NodeRunEntity>,
@@ -82,11 +83,16 @@ function setup(claimed = true, running = 0) {
     queue as unknown as NodeRunQueue,
     events,
     new ConfigService({ PROVIDER_TIMEOUT_MS: 5, SPACE_RUN_CONCURRENCY: 3 }),
-    { type: 'text', execute } as unknown as TextExecutor,
-    { type: 'image_upload' } as ImageUploadExecutor,
-    { type: 'image_generator' } as ImageGeneratorExecutor,
+    { get: () => ({ type: 'text', execute }) } as unknown as ExecutorRegistry,
     resolver as unknown as InputResolver,
     cache as unknown as RunCache,
+    {
+      prepare: (node: { params: Record<string, unknown> }) => ({
+        params: node.params,
+        model: null,
+        provider: null,
+      }),
+    } as unknown as ModelsService,
   );
   return { service, execute, changes, builder, row, emit, repo, queue, cache };
 }
@@ -133,6 +139,14 @@ it('leaves work queued when the per-Space running limit has been reached', async
   expect(execute).not.toHaveBeenCalled();
   expect(changes).toHaveLength(0);
 });
+it('does not claim a job when its provider quota is full', async () => {
+  const { service, row, execute, changes } = setup(true, 2);
+  row.provider = 'mock';
+  row.providerKind = 'image';
+  await service.process(row.id);
+  expect(execute).not.toHaveBeenCalled();
+  expect(changes).toHaveLength(0);
+});
 it('executes the immutable run params and conditionally publishes success', async () => {
   const { service, execute, changes, builder, row } = setup();
   await service.process(row.id);
@@ -153,10 +167,7 @@ it('aborts a hung executor and records a retryable timeout failure', async () =>
 });
 it('records an input resolution failure before invoking an executor', async () => {
   const { service, execute, row, changes } = setup();
-  row.inputs = {
-    references: [],
-    error: "Upstream node 'Text #1' has no output",
-  };
+  row.inputs = { ports: {}, error: "Upstream node 'Text #1' has no output" };
   await service.process(row.id);
   expect(execute).not.toHaveBeenCalled();
   expect(changes[1]).toMatchObject({

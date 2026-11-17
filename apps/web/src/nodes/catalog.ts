@@ -3,6 +3,7 @@ import {
   type NodeCategory,
   type NodeType,
 } from '@hiveflow/shared';
+import { nodePresentations } from './presentation';
 import type { IconName } from '../canvas/Icons';
 
 export interface NodeCatalogEntry {
@@ -14,11 +15,6 @@ export interface NodeCatalogEntry {
   icon: IconName;
   isNew?: boolean;
 }
-const icons: Record<NodeType, IconName> = {
-  text: 'text',
-  image_upload: 'image',
-  image_generator: 'sparkles',
-};
 export const nodeCatalog: NodeCatalogEntry[] = Object.values(nodeRegistry)
   .map((definition) => ({
     type: definition.type,
@@ -26,6 +22,6 @@ export const nodeCatalog: NodeCatalogEntry[] = Object.values(nodeRegistry)
     category: definition.category,
     description: definition.description,
     keywords: definition.keywords,
-    icon: icons[definition.type],
+    icon: nodePresentations[definition.type]?.icon ?? 'sparkles',
   }))
   .sort((a, b) => a.label.localeCompare(b.label));

@@ -50,6 +50,7 @@ npm run migration:run  Apply TypeORM migrations manually (build shared first)
 node apps/api/scripts/smoke-spaces.mjs  Test CRUD/concurrency against a running API and DB
 node apps/api/scripts/smoke-runs.mjs    Test uploads, runs, SSE and recovery with API/DB/Redis/MinIO
 node apps/api/scripts/smoke-batches.mjs Test scheduling, cache, cancellation and concurrency
+node apps/api/scripts/smoke-models.mjs  Test model availability, validation and run provenance
 npm exec -w @hiveflow/web -- playwright install chromium  Install the E2E browser once
 npm run test:e2e -w @hiveflow/web   Run the browser execution smoke check
 docker compose up -d --build  Build and run the whole application
@@ -58,7 +59,7 @@ docker compose start         Start existing containers
 docker compose down          Remove containers, preserving named volumes
 ```
 
-CI uses `npm ci`, then build, typecheck, lint, and unit tests. It prepares PostgreSQL, Redis and MinIO, applies migrations, runs all three API integration scripts, and installs Chromium for the Playwright smoke test. Scripts use root `.env` (environment values take precedence) and `API_BASE_URL` (default `http://127.0.0.1:3000`); they create and clean up only their own fixtures. Run execution checks with `MOCK_FAILURE_RATE=0` and the default provider timeout. E2E uses `E2E_BASE_URL` (default `http://127.0.0.1:5173`), reuses a running Docker web app locally, or starts Vite against an already running API in CI. Its UI-created Space is removed afterward; object garbage collection follows the prototype's deferred cleanup policy.
+CI uses `npm ci`, then build, typecheck, lint, and unit tests. It prepares PostgreSQL, Redis and MinIO, applies migrations, runs all four API integration scripts, and installs Chromium for the Playwright smoke test. Scripts use root `.env` (environment values take precedence) and `API_BASE_URL` (default `http://127.0.0.1:3000`); they create and clean up only their own fixtures. Run execution checks with `MOCK_FAILURE_RATE=0` and the default provider timeout. E2E uses `E2E_BASE_URL` (default `http://127.0.0.1:5173`), reuses a running Docker web app locally, or starts Vite against an already running API in CI. Its UI-created Space is removed afterward; object garbage collection follows the prototype's deferred cleanup policy.
 
 ## Saved Spaces
 
@@ -124,4 +125,25 @@ The optional Vite development server proxies `/health` and `/api/*` to port 3000
 - `SPACES_PLAN.md`: phase acceptance criteria and remaining prototype scope.
 - `NODES_PLAN.md`: continuation for node picker, platform generalization and additional media nodes.
 
-Phases 0–6 are implemented. Next is Phase 7 platform generalization, followed by Assistant, Voiceover, Video Generator and cost guards/real providers in Phases 8–11. See `docs/PHASE_3_CHECKS.md` through `docs/PHASE_6_CHECKS.md` for verification evidence. The default provider remains a mock. Production work includes real authentication, shared event/rate-limit infrastructure for multiple API replicas and orphan-object cleanup.
+Phases 0–7 are implemented. Next are Assistant, Voiceover, Video Generator and cost guards/real providers in Phases 8–11. See `docs/PHASE_3_CHECKS.md` through `docs/PHASE_7_CHECKS.md` for verification evidence. The default provider remains a mock. Production work includes real authentication, shared event/rate-limit infrastructure for multiple API replicas and orphan-object cleanup.
+
+## Models and platform (Phase 7)
+
+Image Generator now loads its model menu from `GET /api/models?kind=image`. Auto uses the server default; concrete model IDs and provider codes are recorded on each run. Changing a default makes previous Auto results stale and prevents an obsolete cache hit. Older phase hashes miss once after this upgrade.
+
+Models are grouped by provider. Unavailable/removed models stay visible with a reason. Saved graphs may retain unknown or retired model IDs; opening them shows a warning, and running asks you to choose another model. Switching models adjusts unsupported settings and resets Advanced options in one Undo step. Try **Mock Image Compact** to exercise quality, seed and soft-light options; all image generation remains local mock rendering. **Image Studio** is an illustrative custom-adapter entry without an implementation or credentials.
+
+Additional configuration:
+
+| Variable                                                                               | Default / purpose                                                    |
+| -------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `DEFAULT_IMAGE_MODEL`, `DEFAULT_LLM_MODEL`, `DEFAULT_TTS_MODEL`, `DEFAULT_VIDEO_MODEL` | `mock-image`, `mock-llm`, `mock-tts`, `mock-video`; aliases accepted |
+| `PROVIDER_MAX_RETRIES`                                                                 | 2 retries for transient errors before a task is accepted             |
+| `PROVIDER_CONCURRENCY_<CODE>`                                                          | 2 running jobs per provider across kinds; uppercase provider code    |
+| `KIND_CONCURRENCY_IMAGE`, `KIND_CONCURRENCY_LLM`, `KIND_CONCURRENCY_TTS`               | 6 running jobs per kind                                              |
+| `KIND_CONCURRENCY_VIDEO`                                                               | 2 running jobs                                                       |
+| `MAX_AUDIO_MB`, `MAX_VIDEO_MB`                                                         | 25 / 250 MB for provider output storage                              |
+
+Provider/kind limits add to existing Space/global limits. Capacity-blocked jobs remain queued. Retries honor Retry-After, cancellation and accepted-task guards. There are no external provider calls or new dependencies in this phase.
+
+The platform understands text/image/audio/video ports and output metadata. Audio/video storage accepts bounded bytes or streams with MIME signature checks; user uploads remain image-only. Stream buffering is size-bounded here; multipart streaming, playback/Range and video scheduling arrive in Phase 10. Mock LLM/TTS/video catalog registrations reserve their contracts; the nodes and executable providers arrive in Phases 8–10.

@@ -1,3 +1,4 @@
+import { ProviderError } from './provider-error';
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -38,7 +39,13 @@ export async function renderMockImage(
   );
   const hash = createHash('sha256')
     .update(
-      JSON.stringify([request.prompt, request.model, index, referenceHashes]),
+      JSON.stringify([
+        request.prompt,
+        request.model,
+        request.options ?? {},
+        index,
+        referenceHashes,
+      ]),
     )
     .digest('hex');
   const fontSize = Math.max(18, Math.round(Math.min(width, height) / 24));
@@ -67,7 +74,11 @@ export class MockImageProvider implements ImageProvider {
     await this.wait(2000 + Math.floor(Math.random() * 2001), signal);
     signal.throwIfAborted();
     if (Math.random() < this.config.getOrThrow<number>('MOCK_FAILURE_RATE'))
-      throw new Error('Mock provider failed. Please retry.');
+      throw new ProviderError(
+        'invalid_request',
+        false,
+        'Mock provider failed. Please retry.',
+      );
     const referenceHashes: string[] = [];
     for (const reference of request.references) {
       signal.throwIfAborted();

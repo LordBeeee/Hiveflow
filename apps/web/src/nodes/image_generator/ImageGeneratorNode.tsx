@@ -1,4 +1,5 @@
-import { useRef } from 'react';
+import { ModelControls } from '../../api/models';
+import { useRef, useState } from 'react';
 import { nodeRegistry } from '@hiveflow/shared';
 import { Icon } from '../../canvas/Icons';
 import { useExecution } from '../../api/execution';
@@ -11,6 +12,7 @@ export function ImageGeneratorNode({
   data,
   selected,
 }: NodeProps<CanvasNode>) {
+  const [modelNotice, setModelNotice] = useState('');
   const input = useRef<HTMLInputElement>(null);
   const { runNode, attachReference, cancelNode } = useExecution();
   const run = useRunStore((state) => state.nodes[id]);
@@ -35,12 +37,17 @@ export function ImageGeneratorNode({
     requesting || run?.status === 'queued' || run?.status === 'running';
   const images = output?.image ?? [];
   const error = requestError ?? (run?.status === 'failed' ? run.error : null);
-  const { prompt, count, model, aspectRatio, resolution } =
+  const { prompt, count, aspectRatio, resolution } =
     nodeRegistry.image_generator.paramsSchema.parse(data.graphNode.params);
   const update = (params: Record<string, unknown>) =>
     useGraphStore.getState().updateParams(id, params);
   return (
-    <NodeFrame node={data.graphNode} number={data.number} selected={!!selected}>
+    <NodeFrame
+      icon="sparkles"
+      node={data.graphNode}
+      number={data.number}
+      selected={!!selected}
+    >
       <div className="generator-preview">
         {images.length ? (
           <div className={`generated-images image-count-${images.length}`}>
@@ -48,13 +55,13 @@ export function ImageGeneratorNode({
               <a
                 className="nodrag nopan"
                 key={image.assetId}
-                href={image.url}
+                href={image.url ?? `/api/assets/${image.assetId}`}
                 target="_blank"
                 rel="noreferrer"
                 aria-label={`Open generated image ${index + 1}`}
               >
                 <img
-                  src={image.url}
+                  src={image.url ?? `/api/assets/${image.assetId}`}
                   alt={`Generated image ${index + 1}`}
                   draggable={false}
                 />
@@ -197,6 +204,20 @@ export function ImageGeneratorNode({
             </span>
           )}
         </div>
+        <ModelControls
+          type={data.graphNode.type}
+          params={data.graphNode.params}
+          onChange={update}
+          onNotice={setModelNotice}
+        />
+        {modelNotice && (
+          <p className="model-warning" role="status">
+            {modelNotice}
+          </p>
+        )}
+        {run?.model && (
+          <p className="generated-model">Generated with {run.model}</p>
+        )}
         <div className="generator-settings">
           <div className="count-control">
             <button
@@ -215,16 +236,6 @@ export function ImageGeneratorNode({
               +
             </button>
           </div>
-          <label className="model-control">
-            <Icon name="sparkles" size={12} />
-            <select
-              aria-label="Model"
-              value={model}
-              onChange={(event) => update({ model: event.target.value })}
-            >
-              <option value="auto">Auto</option>
-            </select>
-          </label>
           <select
             aria-label="Aspect ratio"
             value={aspectRatio}
@@ -257,3 +268,9 @@ export function ImageGeneratorNode({
     </NodeFrame>
   );
 }
+
+export const nodeUI = {
+  type: nodeRegistry.image_generator.type,
+  component: ImageGeneratorNode,
+  icon: 'sparkles' as const,
+};

@@ -2,65 +2,77 @@ import { useEffect, useRef } from 'react';
 import {
   executionHash,
   topoSort,
-  type GraphNode,
+  resolveNodeInputs,
+  nodeRegistry,
+  modelCatalog,
+  selectModel,
+  validateModelParams,
+  type AvailableModel,
+  type NodeDefinitions,
+  type PlatformNode,
   type NodeRun,
   type SpaceGraph,
 } from '@hiveflow/shared';
 import { useGraphStore } from '../store/graph';
 import { useRunStore } from '../store/runs';
 import { executionApi } from './execution';
+import { useModels } from './models';
 
 export async function computeStaleNodes(
-  graph: SpaceGraph,
-  latest: Record<string, NodeRun>,
-  successes: Record<string, NodeRun>,
+  graph: { nodes: PlatformNode[]; edges: SpaceGraph['edges'] },
+  latest: Record<string, Pick<NodeRun, 'inputHash' | 'waiting' | 'output'>>,
+  successes: Record<string, Pick<NodeRun, 'inputHash' | 'waiting' | 'output'>>,
   assetHash: (id: string) => Promise<string>,
+  models: readonly AvailableModel[] = modelCatalog.map((model) => ({
+    ...model,
+    available: model.provider === 'mock' && model.status !== 'removed',
+    isDefault: model.id === `mock-${model.kind}`,
+  })),
+  registry: NodeDefinitions = nodeRegistry,
 ) {
-  const stale: Record<string, boolean> = {};
-  const outdated: Record<string, boolean> = {};
-  const byId = new Map(graph.nodes.map((node) => [node.id, node]));
-  const hashes = new Map<string, Promise<string>>();
-  const hash = (id: string) => {
-    if (!hashes.has(id)) hashes.set(id, assetHash(id));
-    return hashes.get(id)!;
-  };
+  const stale: Record<string, boolean> = {},
+    outdated: Record<string, boolean> = {};
   for (const ids of topoSort(graph))
     for (const id of ids) {
-      const node = byId.get(id)!;
+      const node = graph.nodes.find((node) => node.id === id)!;
       const run = latest[id];
       if (!run) continue;
-      const references: { sha256: string }[] = [];
-      let prompt: string | undefined;
-      let upstreamStale = false;
       try {
-        for (const edge of graph.edges.filter((edge) => edge.target === id)) {
-          const source = byId.get(edge.source) as GraphNode;
-          if (stale[source.id] || outdated[source.id]) upstreamStale = true;
-          if (edge.targetHandle === 'prompt')
-            prompt = String(source.params.value ?? '');
-          else if (source.type === 'image_upload') {
-            if (typeof source.params.assetId !== 'string')
-              throw new Error('Missing reference');
-            references.push({ sha256: await hash(source.params.assetId) });
-          } else {
-            const images = successes[source.id]?.output?.image;
-            if (!images?.length) throw new Error('Missing upstream output');
-            for (const image of images)
-              references.push({
-                sha256: image.sha256 ?? (await hash(image.assetId)),
-              });
-          }
+        const inputs = await resolveNodeInputs(
+          graph,
+          node,
+          async (source) => successes[source.id]?.output,
+          async (assetId, kind) => ({ sha256: await assetHash(assetId), kind }),
+          registry,
+        );
+        if (inputs.error) throw new Error(inputs.error);
+        const definition = registry[node.type];
+        let params = definition.paramsSchema.parse(node.params);
+        if (definition.modelKind) {
+          const model = selectModel(
+            String(params.model ?? 'auto'),
+            definition.modelKind,
+            models,
+          );
+          params = validateModelParams(
+            params,
+            model,
+            Object.values(inputs.ports)
+              .flat()
+              .filter(
+                (value) =>
+                  value.kind === 'asset' && value.mediaKind === 'image',
+              ).length,
+          );
         }
-        const currentHash = await executionHash(node.type, node.params, {
-          prompt,
-          references,
-        });
-        stale[id] =
-          !run.waiting && (upstreamStale || currentHash !== run.inputHash);
+        const hash = await executionHash(node.type, params, inputs);
+        const upstream = graph.edges.some(
+          (edge) =>
+            edge.target === id && (stale[edge.source] || outdated[edge.source]),
+        );
+        stale[id] = !run.waiting && (upstream || hash !== run.inputHash);
         outdated[id] =
-          upstreamStale ||
-          (successes[id] !== undefined &&
-            currentHash !== successes[id].inputHash);
+          upstream || (!!successes[id] && hash !== successes[id].inputHash);
       } catch {
         stale[id] = true;
         outdated[id] = true;
@@ -69,6 +81,7 @@ export async function computeStaleNodes(
   return stale;
 }
 export function useStaleNodes() {
+  const models = useModels();
   const nodes = useGraphStore((state) => state.nodes);
   const edges = useGraphStore((state) => state.edges);
   const latest = useRunStore((state) => state.nodes);
@@ -76,8 +89,9 @@ export function useStaleNodes() {
   const assetHashes = useRef(new Map<string, Promise<string>>());
   useEffect(() => {
     let disposed = false;
+    if (!models.data) return;
     void computeStaleNodes(
-      { schemaVersion: 1, nodes, edges, viewport: { x: 0, y: 0, zoom: 1 } },
+      { nodes, edges },
       latest,
       successes,
       (id) => {
@@ -94,11 +108,12 @@ export function useStaleNodes() {
           );
         return assetHashes.current.get(id)!;
       },
+      models.data,
     ).then((stale) => {
       if (!disposed) useRunStore.getState().setStale(stale);
     });
     return () => {
       disposed = true;
     };
-  }, [nodes, edges, latest, successes]);
+  }, [nodes, edges, latest, successes, models.data]);
 }

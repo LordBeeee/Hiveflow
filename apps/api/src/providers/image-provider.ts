@@ -5,6 +5,7 @@ export interface ImageRequest {
   aspectRatio: string;
   resolution: '1K' | '2K' | '4K';
   model: string;
+  options?: Record<string, string | number | boolean>;
 }
 export interface ImageProvider {
   id: string;
@@ -16,4 +17,3 @@ export interface ImageProvider {
     costCredits?: number;
   }>;
 }
-export const IMAGE_PROVIDER = Symbol('IMAGE_PROVIDER');

@@ -15,6 +15,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { uploadRequestSchema } from '@hiveflow/shared';
 import { CurrentUser, type User } from '../auth/current-user';
+import { mediaExtensions } from './media-input';
 import { AssetsService } from './assets.service';
 
 @Controller('assets')
@@ -54,7 +55,7 @@ export class AssetsController {
     response.set({
       'Content-Type': asset.mime,
       'Content-Length': String(asset.sizeBytes),
-      'Content-Disposition': `inline; filename="${asset.id}.png"`,
+      'Content-Disposition': `inline; filename="${asset.id}.${mediaExtensions[asset.mime]}"`,
       'Cache-Control': 'private, no-store',
       'X-Content-Type-Options': 'nosniff',
     });

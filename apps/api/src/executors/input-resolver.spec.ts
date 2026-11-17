@@ -29,6 +29,7 @@ function setup() {
       .mockImplementation(async (_space: string, id: string) => ({
         id,
         sha256: id,
+        kind: 'image',
       })),
   };
   const resolver = new InputResolver(
@@ -51,8 +52,7 @@ it('reads connected Text synchronously and leaves local prompt untouched', async
   target.params.prompt = 'local prompt';
   connect(node('text', { value: 'connected prompt' }), 'prompt');
   expect(await resolve()).toEqual({
-    prompt: 'connected prompt',
-    references: [],
+    ports: { prompt: [{ kind: 'text', value: 'connected prompt' }] },
   });
   expect(target.params.prompt).toBe('local prompt');
   expect(runs.findOne).not.toHaveBeenCalled();
@@ -74,7 +74,9 @@ it('resolves all images from latest succeeded output, scoped to the Space', asyn
   });
   connect(source);
   expect(
-    (await resolve()).references.map((reference) => reference.assetId),
+    (await resolve()).ports.references.map((reference) =>
+      reference.kind === 'asset' ? reference.assetId : '',
+    ),
   ).toEqual(ids);
   expect(runs.findOne).toHaveBeenCalledWith({
     where: { spaceId, nodeId: source.id, status: 'succeeded' },
@@ -87,7 +89,9 @@ it('resolves upload params without a queue job and preserves reference edge orde
   const ids = [crypto.randomUUID(), crypto.randomUUID()];
   for (const assetId of ids) connect(node('image_upload', { assetId }));
   expect(
-    (await resolve()).references.map((reference) => reference.assetId),
+    (await resolve()).ports.references.map((reference) =>
+      reference.kind === 'asset' ? reference.assetId : '',
+    ),
   ).toEqual(ids);
   expect(runs.findOne).not.toHaveBeenCalled();
 });
@@ -105,7 +109,7 @@ it('returns actionable errors for a source without output or a missing asset', a
 });
 it('handles orphan input edges and disconnected optional inputs without crashing', async () => {
   const { graph, target, resolve } = setup();
-  expect(await resolve()).toEqual({ references: [] });
+  expect(await resolve()).toEqual({ ports: {} });
   graph.edges.push({
     id: crypto.randomUUID(),
     source: crypto.randomUUID(),

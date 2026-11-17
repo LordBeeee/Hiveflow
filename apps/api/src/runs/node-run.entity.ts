@@ -25,6 +25,9 @@ export class NodeRunEntity {
   @Column({ type: 'integer', nullable: true }) level!: number | null;
   @Column({ type: 'jsonb', nullable: true }) output!: RunOutput | null;
   @Column({ type: 'text', nullable: true }) error!: string | null;
+  @Column({ type: 'text', nullable: true }) model!: string | null;
+  @Column({ name: 'provider_kind', type: 'text', nullable: true })
+  providerKind!: string | null;
   @Column({ type: 'text', nullable: true }) provider!: string | null;
   @Column({ name: 'cache_hit', type: 'boolean', default: false })
   cacheHit!: boolean;

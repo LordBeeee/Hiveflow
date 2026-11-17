@@ -295,8 +295,11 @@ try {
   const firstInputs = (
     await db.query('SELECT inputs FROM node_runs WHERE id=$1', [firstId])
   ).rows[0].inputs;
-  assert.equal(firstInputs.prompt, 'Connected text overrides the local prompt');
-  assert.equal(firstInputs.references[0].assetId, asset.body.id);
+  assert.equal(
+    firstInputs.ports.prompt[0].value,
+    'Connected text overrides the local prompt',
+  );
+  assert.equal(firstInputs.ports.references[0].assetId, asset.body.id);
   assert(!JSON.stringify(firstInputs).includes('X-Amz')); // Never persist signed credentials.
   assert.equal(
     (
@@ -318,9 +321,9 @@ try {
   const chainedInputs = (
     await db.query('SELECT inputs FROM node_runs WHERE id=$1', [chainedId])
   ).rows[0].inputs;
-  assert.equal(chainedInputs.prompt, text.params.value);
+  assert.equal(chainedInputs.ports.prompt[0].value, text.params.value);
   assert.deepEqual(
-    chainedInputs.references.map((ref) => ref.assetId),
+    chainedInputs.ports.references.map((ref) => ref.assetId),
     firstRun.output.image.map((image) => image.assetId),
   );
   const repeatedId = await start(second);

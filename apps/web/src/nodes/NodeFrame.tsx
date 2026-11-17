@@ -8,27 +8,24 @@ import {
 import { useGraphStore } from '../store/graph';
 import { useExecution } from '../api/execution';
 import { useRunStore } from '../store/runs';
-import { Icon } from '../canvas/Icons';
+import { Icon, type IconName } from '../canvas/Icons';
 
 export type CanvasNode = Node<
   { graphNode: GraphNode; number: number },
   NodeType
 >;
-const nodeIcons = {
-  text: 'text',
-  image_upload: 'image',
-  image_generator: 'sparkles',
-} as const;
 export function NodeFrame({
   node,
   number,
   selected,
   children,
+  icon,
 }: {
   node: GraphNode;
   number: number;
   selected: boolean;
   children: React.ReactNode;
+  icon: IconName;
 }) {
   const definition: NodeDef<Record<string, unknown>> = nodeRegistry[node.type];
   const { runNode } = useExecution();
@@ -46,7 +43,7 @@ export function NodeFrame({
         offset={42}
         className="node-floating-toolbar nodrag nopan"
       >
-        {node.type === 'image_generator' && (
+        {!!definition.modelKind && (
           <button disabled={busy} onClick={() => void runNode(node.id)}>
             <Icon name="play" size={14} />
             Run
@@ -61,7 +58,7 @@ export function NodeFrame({
         </button>
       </NodeToolbar>
       <div className="node-title">
-        <Icon name={nodeIcons[node.type]} size={15} />
+        <Icon name={icon} size={15} />
         <span>
           {definition.label} <span className="node-number">#{number}</span>
         </span>

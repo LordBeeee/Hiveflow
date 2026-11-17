@@ -7,7 +7,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { createHash, randomUUID } from 'node:crypto';
 import sharp, { type OutputInfo } from 'sharp';
-import type { Asset } from '@hiveflow/shared';
+import { assetSchema, type Asset } from '@hiveflow/shared';
+import { ConfigService } from '@nestjs/config';
+import {
+  readBounded,
+  sniffMedia,
+  mediaExtensions,
+  type StoreInput,
+} from './media-input';
 import type { User } from '../auth/current-user';
 import { SpacesService } from '../spaces/spaces.service';
 import { AssetEntity } from './asset.entity';
@@ -28,10 +35,11 @@ const formats: Record<string, string> = {
   gif: 'image/gif',
 };
 function dto(asset: AssetEntity): Asset {
-  return {
+  return assetSchema.parse({
     id: asset.id,
     spaceId: asset.spaceId,
-    kind: 'image',
+    kind: asset.kind,
+    durationMs: asset.durationMs ?? null,
     url: asset.url,
     mime: asset.mime,
     sizeBytes: asset.sizeBytes,
@@ -39,7 +47,7 @@ function dto(asset: AssetEntity): Asset {
     height: asset.height,
     sha256: asset.sha256,
     createdAt: asset.createdAt.toISOString(),
-  };
+  });
 }
 @Injectable()
 export class AssetsService {
@@ -48,6 +56,7 @@ export class AssetsService {
     private readonly assets: Repository<AssetEntity>,
     private readonly storage: StorageService,
     private readonly spaces: SpacesService,
+    private readonly config: ConfigService = new ConfigService(),
   ) {}
   async upload(
     user: User,
@@ -89,13 +98,58 @@ export class AssetsService {
       normalized.info.height,
     );
   }
-  async store(spaceId: string, bytes: Buffer): Promise<Asset> {
+  async store(spaceId: string, input: StoreInput | Buffer): Promise<Asset> {
+    const legacy = Buffer.isBuffer(input);
+    const data: StoreInput = legacy
+      ? { kind: 'image', bytes: input, mime: 'image/png' }
+      : input;
+    const cap =
+      this.config.get<number>(
+        data.kind === 'audio'
+          ? 'MAX_AUDIO_MB'
+          : data.kind === 'video'
+            ? 'MAX_VIDEO_MB'
+            : 'MAX_UPLOAD_MB',
+      ) ?? (data.kind === 'video' ? 250 : 25);
+    const bytes = await readBounded(data, cap * 1024 * 1024);
+    if (data.kind !== 'image') {
+      sniffMedia(data.kind, data.mime, bytes);
+      const meta = data.meta ?? {};
+      if (
+        data.kind === 'video' &&
+        (!Number.isInteger(meta.width) ||
+          !Number.isInteger(meta.height) ||
+          meta.width! <= 0 ||
+          meta.height! <= 0)
+      )
+        throw new Error('Video width and height are required');
+      if (
+        meta.durationMs !== undefined &&
+        (!Number.isInteger(meta.durationMs) ||
+          meta.durationMs < 0 ||
+          meta.durationMs > 2147483647)
+      )
+        throw new Error('Invalid media duration');
+      return this.persist(
+        spaceId,
+        bytes,
+        data.kind === 'video' ? meta.width! : null,
+        data.kind === 'video' ? meta.height! : null,
+        data.kind,
+        data.mime,
+        meta.durationMs ?? null,
+      );
+    }
     const image = sharp(bytes, {
       limitInputPixels: 16_777_216,
       failOn: 'error',
     });
     const metadata = await image.metadata();
-    if (!metadata.format || !formats[metadata.format])
+    if (
+      !metadata.format ||
+      !formats[metadata.format] ||
+      (!legacy && formats[metadata.format] !== data.mime)
+    )
       throw new Error('Provider returned an unsupported image format');
     const normalized = await image
       .rotate()
@@ -111,22 +165,26 @@ export class AssetsService {
   private async persist(
     spaceId: string,
     bytes: Buffer,
-    width: number,
-    height: number,
+    width: number | null,
+    height: number | null,
+    kind: StoreInput['kind'] = 'image',
+    mime = 'image/png',
+    durationMs: number | null = null,
   ): Promise<Asset> {
     const id = randomUUID();
-    const storageKey = `spaces/${spaceId}/${id}.png`;
-    await this.storage.put(storageKey, bytes, 'image/png');
+    const storageKey = `spaces/${spaceId}/${id}.${mediaExtensions[mime]}`;
+    await this.storage.put(storageKey, bytes, mime);
     try {
       return dto(
         await this.assets.save(
           this.assets.create({
             id,
             spaceId,
-            kind: 'image',
+            kind,
+            durationMs,
             storageKey,
             url: `/api/assets/${id}`,
-            mime: 'image/png',
+            mime,
             sizeBytes: bytes.length,
             width,
             height,

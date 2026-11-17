@@ -14,3 +14,5 @@ export * from './nodes';
 export * from './graph';
 export * from './spaces';
 export * from './runs';
+export * from './models';
+export * from './inputs';

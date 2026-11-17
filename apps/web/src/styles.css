@@ -1153,3 +1153,47 @@ textarea:focus-visible {
 .cache-badge {
   color: #b5ce78;
 }
+.model-controls {
+  padding: 8px 0;
+  color: #b7c3ad;
+  font-size: 11px;
+}
+.model-controls > select {
+  width: 100%;
+  max-width: 100%;
+  padding: 7px;
+  background: #252e22;
+  border: 1px solid #43513a;
+  border-radius: 5px;
+}
+.model-controls details {
+  margin-top: 8px;
+}
+.model-controls details label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  gap: 8px;
+}
+.model-controls details input[type='number'] {
+  width: 90px;
+  background: #20281d;
+  padding: 4px;
+}
+.model-warning {
+  color: #e0b681;
+  font-size: 11px;
+  margin: 6px 0;
+}
+.generated-model {
+  color: #9ead91;
+  font-size: 10px;
+  margin: 4px 0;
+}
+.port-video {
+  background: #79bdf2;
+}
+.port-audio {
+  background: #efad83;
+}

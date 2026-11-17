@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import sharp from 'sharp';
+import { Readable } from 'node:stream';
 import { AssetsService } from './assets.service';
 import type { AssetEntity } from './asset.entity';
 import type { StorageService } from './storage.service';
@@ -23,6 +24,56 @@ function setup() {
   return { service, storage, assets, spaces };
 }
 describe('AssetsService', () => {
+  it('persists streamed audio and video with matching metadata and extensions', async () => {
+    const { service, storage } = setup();
+    const spaceId = crypto.randomUUID();
+    const wav = Buffer.alloc(44);
+    wav.write('RIFF', 0);
+    wav.write('WAVE', 8);
+    const audio = await service.store(spaceId, {
+      kind: 'audio',
+      stream: Readable.from([wav.subarray(0, 10), wav.subarray(10)]),
+      mime: 'audio/wav',
+      meta: { durationMs: 1200 },
+    });
+    expect(audio).toMatchObject({
+      kind: 'audio',
+      width: null,
+      height: null,
+      durationMs: 1200,
+      sizeBytes: 44,
+    });
+    expect(storage.put).toHaveBeenLastCalledWith(
+      expect.stringMatching(/\.wav$/),
+      wav,
+      'audio/wav',
+    );
+    const mp4 = Buffer.alloc(16);
+    mp4.writeUInt32BE(16, 0);
+    mp4.write('ftyp', 4);
+    const video = await service.store(spaceId, {
+      kind: 'video',
+      bytes: mp4,
+      mime: 'video/mp4',
+      meta: { width: 320, height: 180, durationMs: 2000 },
+    });
+    expect(video).toMatchObject({
+      kind: 'video',
+      width: 320,
+      height: 180,
+      durationMs: 2000,
+      sizeBytes: 16,
+    });
+    expect(storage.put).toHaveBeenLastCalledWith(
+      expect.stringMatching(/\.mp4$/),
+      mp4,
+      'video/mp4',
+    );
+    await expect(
+      service.store(spaceId, { kind: 'video', bytes: mp4, mime: 'video/mp4' }),
+    ).rejects.toThrow('width and height');
+    expect(storage.put).toHaveBeenCalledTimes(2);
+  });
   it('checks ownership before writing storage and persists only metadata', async () => {
     const { service, assets, storage } = setup();
     const spaceId = crypto.randomUUID();

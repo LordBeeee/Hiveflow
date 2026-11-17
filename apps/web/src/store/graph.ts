@@ -26,7 +26,7 @@ export const initialGraph: SpaceGraph = {
     },
     {
       id: '48dbd602-28c6-470f-b939-e249fce18c27',
-      type: 'image_generator',
+      type: nodeRegistry.image_generator.type,
       position: { x: 650, y: 125 },
       params: { ...nodeRegistry.image_generator.defaultParams },
     },
@@ -120,7 +120,13 @@ export const useGraphStore = create<GraphState>()(
       },
       addReference: (targetId, assetId) => {
         const target = get().nodes.find((node) => node.id === targetId);
-        if (!target || target.type !== 'image_generator') return;
+        if (
+          !target ||
+          !nodeRegistry[target.type].inputs.some(
+            (port) => port.id === 'references',
+          )
+        )
+          return;
         const id = crypto.randomUUID();
         const count = get().edges.filter(
           (edge) =>

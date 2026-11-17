@@ -16,7 +16,9 @@ export class RunCache {
       order: { sequence: 'DESC' },
     });
     if (!run?.output) return null;
-    for (const image of run.output.image ?? []) {
+    for (const image of Object.values(run.output).flatMap((value) =>
+      typeof value === 'string' ? [] : (value ?? []),
+    )) {
       try {
         await this.assets.forSpace(spaceId, image.assetId);
       } catch (error) {

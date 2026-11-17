@@ -1,3 +1,4 @@
+import { ProviderRegistry } from '../providers/provider-registry';
 import type { AssetsService } from '../assets/assets.service';
 import { nodeRegistry } from '@hiveflow/shared';
 import { ImageGeneratorExecutor } from './image-generator.executor';
@@ -18,13 +19,19 @@ function setup() {
   const generate = jest
     .fn()
     .mockResolvedValue({ images: [{ bytes: Buffer.from('png') }] });
+  const registry = new ProviderRegistry();
+  registry.register('image', 'mock', { id: 'test', generate } as ImageProvider);
   const executor = new ImageGeneratorExecutor(
     assets as unknown as AssetsService,
-    { id: 'test', generate } as ImageProvider,
+    registry,
   );
   const context = {
     spaceId: crypto.randomUUID(),
-    params: { ...nodeRegistry.image_generator.defaultParams, prompt: 'local' },
+    params: {
+      ...nodeRegistry.image_generator.defaultParams,
+      prompt: 'local',
+      model: 'mock-image',
+    },
     signal: new AbortController().signal,
   };
   return { executor, assets, generate, context };
@@ -34,7 +41,16 @@ it('uses resolved prompt and fresh signed references when calling the provider',
   const assetId = crypto.randomUUID();
   await executor.execute({
     ...context,
-    inputs: { prompt: 'connected', references: [{ assetId, sha256: 'hash' }] },
+    inputs: {
+      ports: {
+        prompt: [{ kind: 'text', value: 'connected' }],
+        references: [{ assetId, sha256: 'hash' }].map((reference) => ({
+          kind: 'asset' as const,
+          mediaKind: 'image' as const,
+          ...reference,
+        })),
+      },
+    },
   });
   expect(assets.providerReference).toHaveBeenCalledWith(
     context.spaceId,
@@ -47,7 +63,7 @@ it('uses resolved prompt and fresh signed references when calling the provider',
 });
 it('uses local prompt after disconnect, and rejects missing prompt before the provider call', async () => {
   const { executor, generate, context } = setup();
-  await executor.execute({ ...context, inputs: { references: [] } });
+  await executor.execute({ ...context, inputs: { ports: {} } });
   expect(generate.mock.calls[0][0].prompt).toBe('local');
   context.params.prompt = '';
   await expect(executor.execute(context)).rejects.toThrow(

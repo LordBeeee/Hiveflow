@@ -1,5 +1,12 @@
-export type PortType = 'text' | 'image';
-export type NodeType = 'text' | 'image_upload' | 'image_generator';
+import type { nodeRegistry } from './nodes';
+export type PortType = 'text' | 'image' | 'video' | 'audio';
+export type NodeType = keyof typeof nodeRegistry;
+export const portColors: Record<PortType, string> = {
+  text: '#b5a0f2',
+  image: '#b5ce78',
+  video: '#79bdf2',
+  audio: '#efad83',
+};
 export interface Point {
   x: number;
   y: number;

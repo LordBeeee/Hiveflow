@@ -27,26 +27,66 @@ it('hashes effective input values independently of metadata and object key order
   const a = await executionHash(
     'image_generator',
     { prompt: 'local', count: 1 },
-    { prompt: 'upstream', references: [{ sha256: 'a' }, { sha256: 'b' }] },
+    {
+      ports: {
+        prompt: [{ kind: 'text', value: 'upstream' }],
+        references: [{ sha256: 'a' }, { sha256: 'b' }].map((reference) => ({
+          kind: 'asset' as const,
+          mediaKind: 'image' as const,
+          assetId: 'fixture-asset',
+          ...reference,
+        })),
+      },
+    },
   );
   const b = await executionHash(
     'image_generator',
     { count: 1, prompt: 'local' },
-    { references: [{ sha256: 'a' }, { sha256: 'b' }], prompt: 'upstream' },
+    {
+      ports: {
+        prompt: [{ kind: 'text', value: 'upstream' }],
+        references: [{ sha256: 'a' }, { sha256: 'b' }].map((reference) => ({
+          kind: 'asset' as const,
+          mediaKind: 'image' as const,
+          assetId: 'fixture-asset',
+          ...reference,
+        })),
+      },
+    },
   );
   expect(a).toBe(b);
   expect(a).not.toBe(
     await executionHash(
       'image_generator',
       { count: 1, prompt: 'local' },
-      { prompt: 'changed', references: [{ sha256: 'a' }, { sha256: 'b' }] },
+      {
+        ports: {
+          prompt: [{ kind: 'text', value: 'changed' }],
+          references: [{ sha256: 'a' }, { sha256: 'b' }].map((reference) => ({
+            kind: 'asset' as const,
+            mediaKind: 'image' as const,
+            assetId: 'fixture-asset',
+            ...reference,
+          })),
+        },
+      },
     ),
   );
   expect(a).not.toBe(
     await executionHash(
       'image_generator',
       { count: 1, prompt: 'local' },
-      { prompt: 'upstream', references: [{ sha256: 'b' }, { sha256: 'a' }] },
+      {
+        ports: {
+          prompt: [{ kind: 'text', value: 'upstream' }],
+          references: [{ sha256: 'b' }, { sha256: 'a' }].map((reference) => ({
+            kind: 'asset' as const,
+            mediaKind: 'image' as const,
+            assetId: 'fixture-asset',
+            ...reference,
+          })),
+        },
+      },
     ),
   );
 });
@@ -54,12 +94,12 @@ it('does not deduplicate missing upstream inputs into valid disconnected work', 
   const valid = await executionHash(
     'image_generator',
     { prompt: 'local' },
-    { references: [] },
+    { ports: {} },
   );
   const invalid = await executionHash(
     'image_generator',
     { prompt: 'local' },
-    { references: [], error: 'Upstream has no output' },
+    { ports: {}, error: 'Upstream has no output' },
   );
   expect(valid).not.toBe(invalid);
 });

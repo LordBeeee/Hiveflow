@@ -1,7 +1,14 @@
-import { nodeRegistry, type NodeDef } from '../nodes';
-import type { GraphEdge, GraphNode, SpaceGraph } from '../types';
+import { nodeRegistry, type NodeDef, type NodeDefinitions } from '../nodes';
+import type { GraphEdge, GraphNode } from '../types';
 
-type Graph = Pick<SpaceGraph, 'nodes' | 'edges'>;
+type Graph = {
+  nodes: readonly {
+    id: string;
+    type: string;
+    params: Record<string, unknown>;
+  }[];
+  edges: readonly GraphEdge[];
+};
 export type ConnectionCandidate = Omit<GraphEdge, 'id'>;
 export interface ConnectionOrigin {
   nodeId: string;
@@ -67,6 +74,7 @@ export function wouldCreateCycle(
 export function validateConnection(
   graph: Graph,
   connection: ConnectionCandidate,
+  registry: NodeDefinitions = nodeRegistry,
 ): ConnectionValidation {
   const fail = (error: string): ConnectionValidation => ({
     valid: false,
@@ -76,8 +84,8 @@ export function validateConnection(
   const target = graph.nodes.find((node) => node.id === connection.target);
   if (!source || !target) return fail('Both nodes must exist.');
   if (source.id === target.id) return fail('A node cannot connect to itself.');
-  const sourceDef: NodeDef<Record<string, unknown>> = nodeRegistry[source.type];
-  const targetDef: NodeDef<Record<string, unknown>> = nodeRegistry[target.type];
+  const sourceDef: NodeDef<Record<string, unknown>> = registry[source.type];
+  const targetDef: NodeDef<Record<string, unknown>> = registry[target.type];
   const output = sourceDef.outputs.find(
     (port) => port.id === connection.sourceHandle,
   );

@@ -51,6 +51,7 @@ jobs:
               node apps/api/scripts/smoke-spaces.mjs
               node apps/api/scripts/smoke-runs.mjs
               node apps/api/scripts/smoke-batches.mjs
+              node apps/api/scripts/smoke-models.mjs
               npx playwright install --with-deps chromium
               npm run test:e2e -w @hiveflow/web
               exit 0

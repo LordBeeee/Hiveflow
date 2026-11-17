@@ -135,8 +135,11 @@ try {
       new Date(Math.max(...levelZero.map((run) => run.finished_at.getTime()))),
   );
   assert(bRun.started_at >= aRun.finished_at);
-  assert.equal(aRun.inputs.prompt, text.params.value);
-  assert.equal(bRun.inputs.references[0].assetId, aRun.output.image[0].assetId);
+  assert.equal(aRun.inputs.ports.prompt[0].value, text.params.value);
+  assert.equal(
+    bRun.inputs.ports.references[0].assetId,
+    aRun.output.image[0].assetId,
+  );
   const now = Date.now();
   const cached = await request(`/spaces/${spaceId}/run`, {});
   assert.equal((await complete(spaceId, cached.batchId)).status, 'succeeded');

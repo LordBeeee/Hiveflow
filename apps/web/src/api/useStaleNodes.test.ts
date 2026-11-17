@@ -48,16 +48,28 @@ it('propagates changed upstream prompts through an image chain and clears after 
   };
   const success = {
     a: {
-      inputHash: await executionHash(a.type, a.params, {
-        prompt: 'original',
-        references: [],
-      }),
+      inputHash: await executionHash(
+        a.type,
+        { ...a.params, model: 'mock-image' },
+        { ports: { prompt: [{ kind: 'text', value: 'original' }] } },
+      ),
       output: { image: [image] },
     } as NodeRun,
     b: {
-      inputHash: await executionHash(b.type, b.params, {
-        references: [{ sha256: 'asset-hash' }],
-      }),
+      inputHash: await executionHash(
+        b.type,
+        { ...b.params, model: 'mock-image' },
+        {
+          ports: {
+            references: [{ sha256: 'asset-hash' }].map((reference) => ({
+              kind: 'asset' as const,
+              mediaKind: 'image' as const,
+              assetId: 'fixture-asset',
+              ...reference,
+            })),
+          },
+        },
+      ),
     } as NodeRun,
   };
   expect(
@@ -71,10 +83,11 @@ it('propagates changed upstream prompts through an image chain and clears after 
     ...success,
     a: {
       ...success.a,
-      inputHash: await executionHash(a.type, a.params, {
-        prompt: 'new prompt',
-        references: [],
-      }),
+      inputHash: await executionHash(
+        a.type,
+        { ...a.params, model: 'mock-image' },
+        { ports: { prompt: [{ kind: 'text', value: 'new prompt' }] } },
+      ),
       status: 'failed' as const,
     },
   };
@@ -118,4 +131,65 @@ it('marks an unavailable reference stale without throwing or using an expiring U
       throw new Error('404');
     }),
   ).toEqual({ target: true });
+});
+it('calculates stale for a fake registry node without a node-type branch', async () => {
+  const { nodeRegistry, resolveNodeInputs } = await import('@hiveflow/shared');
+  const registry = {
+    ...nodeRegistry,
+    fake: {
+      ...nodeRegistry.text,
+      type: 'fake',
+      staticOutput: undefined,
+      inputs: [{ id: 'context', type: 'text' as const }],
+      paramsSchema: nodeRegistry.text.paramsSchema,
+    },
+  };
+  const source = { id: 'source', type: 'text', params: { value: 'before' } };
+  const target = { id: 'fake', type: 'fake', params: { value: 'local' } };
+  const graph = {
+    nodes: [source, target],
+    edges: [
+      {
+        id: 'edge',
+        source: source.id,
+        sourceHandle: 'text',
+        target: target.id,
+        targetHandle: 'context',
+      },
+    ],
+  };
+  const inputs = await resolveNodeInputs(
+    graph,
+    target,
+    async () => null,
+    async () => null,
+    registry,
+  );
+  const latest = {
+    fake: {
+      inputHash: await executionHash('fake', target.params, inputs),
+      output: null,
+    },
+  };
+  expect(
+    await computeStaleNodes(
+      graph,
+      latest,
+      {},
+      async () => '',
+      undefined,
+      registry,
+    ),
+  ).toEqual({ fake: false });
+  source.params.value = 'after';
+  expect(
+    await computeStaleNodes(
+      graph,
+      latest,
+      {},
+      async () => '',
+      undefined,
+      registry,
+    ),
+  ).toEqual({ fake: true });
 });

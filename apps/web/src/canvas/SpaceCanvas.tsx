@@ -21,6 +21,7 @@ import {
 import { useStore } from 'zustand';
 import {
   APP_NAME,
+  portColors,
   validateConnection,
   connectionForNewNode,
   nodeRegistry,
@@ -30,19 +31,18 @@ import {
 } from '@hiveflow/shared';
 import { redo, undo, useGraphStore } from '../store/graph';
 import { useUIStore } from '../store/ui';
-import { ImageGeneratorNode } from '../nodes/image_generator/ImageGeneratorNode';
-import { ImageUploadNode } from '../nodes/image_upload/ImageUploadNode';
-import { TextNode } from '../nodes/text/TextNode';
+import { nodePresentations } from '../nodes/presentation';
 import type { CanvasNode } from '../nodes/NodeFrame';
 import { Icon } from './Icons';
 import { NodePicker } from './NodePicker/NodePicker';
 import { nodeCatalog } from '../nodes/catalog';
 
-const nodeTypes = {
-  text: TextNode,
-  image_upload: ImageUploadNode,
-  image_generator: ImageGeneratorNode,
-};
+const nodeTypes = Object.fromEntries(
+  Object.values(nodePresentations).map((entry) => [
+    entry.type,
+    entry.component,
+  ]),
+);
 function useShortcuts(openPicker: () => void) {
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
@@ -144,7 +144,9 @@ export function SpaceCanvas({
   }, [message, notify]);
 
   const nodes = useMemo(() => {
-    const counts = { text: 0, image_upload: 0, image_generator: 0 };
+    const counts: Record<string, number> = Object.fromEntries(
+      Object.keys(nodeRegistry).map((type) => [type, 0]),
+    );
     return state.nodes.map((node): CanvasNode => ({
       id: node.id,
       type: node.type,
@@ -160,7 +162,13 @@ export function SpaceCanvas({
         selected: state.selectedEdges.includes(edge.id),
         type: 'default',
         style: {
-          stroke: edge.sourceHandle === 'text' ? '#b5a0f2' : '#b5ce78',
+          stroke:
+            portColors[
+              nodeRegistry[
+                state.nodes.find((node) => node.id === edge.source)!.type
+              ].outputs.find((port) => port.id === edge.sourceHandle)?.type ??
+                'text'
+            ],
           strokeWidth: 2,
         },
       })),

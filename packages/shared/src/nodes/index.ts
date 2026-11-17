@@ -1,20 +1,25 @@
 import { z } from 'zod';
-import type { NodeType, PortType } from '../types';
+import type { PortType } from '../types';
+import type { RunOutput } from '../media';
+import type { ModelKind } from '../models';
 export type NodeCategory = 'Image' | 'Video' | 'Audio' | 'Text' | 'Utilities';
 
-export interface NodeDef<P> {
-  type: NodeType;
+export interface NodeDef<P = Record<string, unknown>> {
+  type: string;
   label: string;
   category: NodeCategory;
   description: string;
-  keywords: string[];
-  inputs: {
+  keywords: readonly string[];
+  modelKind?: ModelKind;
+  staticOutput?: (params: Record<string, unknown>) => RunOutput | null;
+  missingOutputHint?: string;
+  inputs: readonly {
     id: string;
     type: PortType;
     required?: boolean;
     multiple?: boolean;
   }[];
-  outputs: { id: string; type: PortType }[];
+  outputs: readonly { id: string; type: PortType }[];
   paramsSchema: z.ZodType<P>;
   defaultParams: P;
 }
@@ -32,6 +37,12 @@ export const imageGeneratorParamsSchema = z
     model: z.string().min(1),
     aspectRatio: z.enum(['1:1', '16:9', '9:16', '4:3', '3:4']),
     resolution: z.enum(['1K', '2K', '4K']),
+    options: z
+      .record(
+        z.string(),
+        z.union([z.string(), z.number().finite(), z.boolean()]),
+      )
+      .default({}),
   })
   .strict();
 
@@ -48,6 +59,10 @@ export const nodeRegistry = {
     outputs: [{ id: 'text', type: 'text' }],
     paramsSchema: textParamsSchema,
     defaultParams: { value: '' },
+    staticOutput: (params: Record<string, unknown>): RunOutput => ({
+      text: String(params.value ?? ''),
+    }),
+    missingOutputHint: 'Enter some text',
   },
   image_upload: {
     type: 'image_upload',
@@ -59,6 +74,11 @@ export const nodeRegistry = {
     outputs: [{ id: 'image', type: 'image' }],
     paramsSchema: imageUploadParamsSchema,
     defaultParams: { assetId: null },
+    staticOutput: (params: Record<string, unknown>): RunOutput => ({
+      image:
+        typeof params.assetId === 'string' ? [{ assetId: params.assetId }] : [],
+    }),
+    missingOutputHint: 'Choose and upload an image',
   },
   image_generator: {
     type: 'image_generator',
@@ -66,6 +86,7 @@ export const nodeRegistry = {
     category: 'Image',
     description: 'Turn a prompt into an image',
     keywords: ['generate', 'create', 'art', 'render', 'ảnh'],
+    modelKind: 'image',
     inputs: [
       { id: 'prompt', type: 'text' },
       { id: 'references', type: 'image', multiple: true },
@@ -78,13 +99,15 @@ export const nodeRegistry = {
       model: 'auto',
       aspectRatio: '1:1',
       resolution: '1K',
+      options: {},
     },
   },
-} satisfies Record<NodeType, NodeDef<Record<string, unknown>>>;
+} as const satisfies Record<string, NodeDef>;
+export type NodeDefinitions = Readonly<Record<string, NodeDef>>;
 
 // Retain valid fields if a document has older or malformed parameters.
 export function normalizeNodeParams(
-  type: NodeType,
+  type: keyof typeof nodeRegistry,
   params: Record<string, unknown>,
 ) {
   const definition = nodeRegistry[type];
@@ -95,6 +118,10 @@ export function normalizeNodeParams(
     if (!(key in fields)) warnings.push(`Unknown ${type}.${key}; ignored`);
   }
   for (const key of Object.keys(fields)) {
+    if (params[key] === undefined && fields[key].isOptional()) {
+      delete result[key];
+      continue;
+    }
     const parsed = fields[key].safeParse(params[key]);
     if (parsed.success) result[key] = parsed.data;
     else warnings.push(`Invalid ${type}.${key}; using default`);

@@ -1,89 +1,101 @@
 import { z } from 'zod';
 import { validateConnection } from './graph';
-import { nodeRegistry, normalizeNodeParams } from './nodes';
+import { nodeRegistry, normalizeNodeParams, type NodeDef } from './nodes';
 import type { SpaceGraph } from './types';
 
 const pointSchema = z
   .object({ x: z.number().finite(), y: z.number().finite() })
   .strict();
-export const graphStructureSchema = z
-  .object({
-    schemaVersion: z.literal(1),
-    nodes: z
-      .array(
-        z
-          .object({
-            id: z.uuid(),
-            type: z.enum(['text', 'image_upload', 'image_generator']),
-            position: pointSchema,
-            params: z.record(z.string(), z.unknown()),
-          })
-          .strict(),
-      )
-      .max(1000),
-    edges: z
-      .array(
-        z
-          .object({
-            id: z.string().min(1).max(128),
-            source: z.uuid(),
-            sourceHandle: z.string().min(1),
-            target: z.uuid(),
-            targetHandle: z.string().min(1),
-          })
-          .strict(),
-      )
-      .max(5000),
-    viewport: pointSchema.extend({
-      zoom: z.number().finite().positive().max(4),
-    }),
-  })
-  .strict();
+export function createGraphSchemas<T extends Record<string, NodeDef>>(
+  registry: T,
+) {
+  const graphStructureSchema = z
+    .object({
+      schemaVersion: z.literal(1),
+      nodes: z
+        .array(
+          z
+            .object({
+              id: z.uuid(),
+              type: z.enum(
+                Object.keys(registry) as [
+                  Extract<keyof T, string>,
+                  ...Extract<keyof T, string>[],
+                ],
+              ),
+              position: pointSchema,
+              params: z.record(z.string(), z.unknown()),
+            })
+            .strict(),
+        )
+        .max(1000),
+      edges: z
+        .array(
+          z
+            .object({
+              id: z.string().min(1).max(128),
+              source: z.uuid(),
+              sourceHandle: z.string().min(1),
+              target: z.uuid(),
+              targetHandle: z.string().min(1),
+            })
+            .strict(),
+        )
+        .max(5000),
+      viewport: pointSchema.extend({
+        zoom: z.number().finite().positive().max(4),
+      }),
+    })
+    .strict();
 
-export const spaceGraphSchema = graphStructureSchema.superRefine(
-  (graph, context) => {
-    const nodeIds = new Set<string>();
-    graph.nodes.forEach((node, index) => {
-      if (nodeIds.has(node.id))
-        context.addIssue({
-          code: 'custom',
-          path: ['nodes', index, 'id'],
-          message: 'Duplicate node ID',
-        });
-      nodeIds.add(node.id);
-      const params = nodeRegistry[node.type].paramsSchema.safeParse(
-        node.params,
-      );
-      if (!params.success)
-        for (const issue of params.error.issues)
+  const spaceGraphSchema = graphStructureSchema.superRefine(
+    (graph, context) => {
+      const nodeIds = new Set<string>();
+      graph.nodes.forEach((node, index) => {
+        if (nodeIds.has(node.id))
           context.addIssue({
             code: 'custom',
-            path: ['nodes', index, 'params', ...issue.path],
-            message: issue.message,
+            path: ['nodes', index, 'id'],
+            message: 'Duplicate node ID',
           });
-    });
-    const edgeIds = new Set<string>();
-    graph.edges.forEach((edge, index) => {
-      if (edgeIds.has(edge.id))
-        context.addIssue({
-          code: 'custom',
-          path: ['edges', index, 'id'],
-          message: 'Duplicate edge ID',
-        });
-      edgeIds.add(edge.id);
-      const result = validateConnection(
-        { nodes: graph.nodes, edges: graph.edges.slice(0, index) },
-        edge,
-      );
-      if (!result.valid)
-        context.addIssue({
-          code: 'custom',
-          path: ['edges', index],
-          message: result.error,
-        });
-    });
-  },
-);
+        nodeIds.add(node.id);
+        const params = registry[node.type].paramsSchema.safeParse(node.params);
+        if (!params.success)
+          for (const issue of params.error.issues)
+            context.addIssue({
+              code: 'custom',
+              path: ['nodes', index, 'params', ...issue.path],
+              message: issue.message,
+            });
+      });
+      const edgeIds = new Set<string>();
+      graph.edges.forEach((edge, index) => {
+        if (edgeIds.has(edge.id))
+          context.addIssue({
+            code: 'custom',
+            path: ['edges', index, 'id'],
+            message: 'Duplicate edge ID',
+          });
+        edgeIds.add(edge.id);
+        const result = validateConnection(
+          { nodes: graph.nodes, edges: graph.edges.slice(0, index) },
+          edge,
+          registry,
+        );
+        if (!result.valid)
+          context.addIssue({
+            code: 'custom',
+            path: ['edges', index],
+            message: result.error,
+          });
+      });
+    },
+  );
+
+  return { graphStructureSchema, spaceGraphSchema };
+}
+export const { graphStructureSchema, spaceGraphSchema } =
+  createGraphSchemas(nodeRegistry);
 
 export const spaceNameSchema = z.string().trim().min(1).max(120);
 export const createSpaceSchema = z

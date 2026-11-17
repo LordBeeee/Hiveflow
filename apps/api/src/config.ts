@@ -35,6 +35,11 @@ export function validateEnvironment(
       throw new Error(`${key} is required`);
     return value;
   };
+  const providerLimits: Record<string, number> = {};
+  for (const key of Object.keys(env).filter((key) =>
+    /^PROVIDER_CONCURRENCY_[A-Z0-9_]+$/.test(key),
+  ))
+    providerLimits[key] = integer(key, 2, 1, 32);
   return {
     ...env,
     API_PORT: port,
@@ -52,6 +57,22 @@ export function validateEnvironment(
     MAX_UPLOAD_MB: integer('MAX_UPLOAD_MB', 20, 1, 100),
     WORKER_CONCURRENCY: integer('WORKER_CONCURRENCY', 6, 1, 32),
     SPACE_RUN_CONCURRENCY: integer('SPACE_RUN_CONCURRENCY', 3, 1, 32),
+    PROVIDER_MAX_RETRIES: integer('PROVIDER_MAX_RETRIES', 2, 0, 5),
+    PROVIDER_CONCURRENCY_MOCK: integer('PROVIDER_CONCURRENCY_MOCK', 2, 1, 32),
+    ...providerLimits,
+    KIND_CONCURRENCY_IMAGE: integer('KIND_CONCURRENCY_IMAGE', 6, 1, 32),
+    KIND_CONCURRENCY_LLM: integer('KIND_CONCURRENCY_LLM', 6, 1, 32),
+    KIND_CONCURRENCY_TTS: integer('KIND_CONCURRENCY_TTS', 6, 1, 32),
+    KIND_CONCURRENCY_VIDEO: integer('KIND_CONCURRENCY_VIDEO', 2, 1, 32),
+    MAX_AUDIO_MB: integer('MAX_AUDIO_MB', 25, 1, 1024),
+    MAX_VIDEO_MB: integer('MAX_VIDEO_MB', 250, 1, 2048),
+    ...Object.fromEntries(
+      ['IMAGE', 'LLM', 'TTS', 'VIDEO'].map((kind) => [
+        `DEFAULT_${kind}_MODEL`,
+        env[`DEFAULT_${kind}_MODEL`] ??
+          `mock-${kind === 'IMAGE' ? 'image' : kind.toLowerCase()}`,
+      ]),
+    ),
     S3_ENDPOINT: storage('S3_ENDPOINT', 'http://localhost:9000'),
     S3_REGION: storage('S3_REGION', 'us-east-1'),
     S3_BUCKET: storage('S3_BUCKET', 'hiveflow-assets'),

@@ -1,3 +1,4 @@
+import { nodeRegistry } from '@hiveflow/shared';
 import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Icon } from '../../canvas/Icons';
@@ -27,7 +28,12 @@ export function ImageUploadNode({ id, data, selected }: NodeProps<CanvasNode>) {
     if (file && !uploading) void uploadFile(id, file).catch(() => {});
   }
   return (
-    <NodeFrame node={data.graphNode} number={data.number} selected={!!selected}>
+    <NodeFrame
+      icon="image"
+      node={data.graphNode}
+      number={data.number}
+      selected={!!selected}
+    >
       <input
         ref={input}
         className="hidden"
@@ -102,3 +108,9 @@ export function ImageUploadNode({ id, data, selected }: NodeProps<CanvasNode>) {
     </NodeFrame>
   );
 }
+
+export const nodeUI = {
+  type: nodeRegistry.image_upload.type,
+  component: ImageUploadNode,
+  icon: 'image' as const,
+};

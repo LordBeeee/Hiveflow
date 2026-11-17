@@ -1,35 +1,20 @@
 import { z } from 'zod';
 import { stableStringify } from './graph';
-import type { NodeType } from './types';
 
-export const assetSchema = z.object({
-  id: z.uuid(),
-  spaceId: z.uuid(),
-  kind: z.literal('image'),
-  url: z.string(),
-  mime: z.string(),
-  sizeBytes: z.number().int().nonnegative(),
-  width: z.number().int().positive(),
-  height: z.number().int().positive(),
-  sha256: z.string().regex(/^[a-f0-9]{64}$/),
-  createdAt: z.iso.datetime(),
-});
-export type Asset = z.infer<typeof assetSchema>;
-export const assetOutputSchema = z.object({
-  assetId: z.uuid(),
-  url: z.string(),
-  width: z.number().int().positive(),
-  height: z.number().int().positive(),
-  sha256: z
-    .string()
-    .regex(/^[a-f0-9]{64}$/)
-    .optional(),
-});
-export const runOutputSchema = z.object({
-  text: z.string().optional(),
-  image: z.array(assetOutputSchema).max(4).optional(),
-});
-export type RunOutput = z.infer<typeof runOutputSchema>;
+export {
+  assetSchema,
+  assetRefSchema as assetOutputSchema,
+  runOutputSchema,
+} from './media';
+export type {
+  Asset,
+  RunOutput,
+  ResolvedInputs,
+  ResolvedValue,
+  MediaKind,
+} from './media';
+import { runOutputSchema, type ResolvedInputs } from './media';
+import { nodeRegistry, type NodeDefinitions } from './nodes';
 export const runStatusSchema = z.enum([
   'queued',
   'running',
@@ -38,24 +23,33 @@ export const runStatusSchema = z.enum([
   'canceled',
   'skipped',
 ]);
-export const nodeRunSchema = z.object({
-  runId: z.uuid(),
-  spaceId: z.uuid(),
-  nodeId: z.uuid(),
-  nodeType: z.enum(['text', 'image_upload', 'image_generator']),
-  sequence: z.string().regex(/^\d+$/),
-  batchId: z.uuid().nullable(),
-  status: runStatusSchema,
-  inputHash: z.string(),
-  output: runOutputSchema.nullable(),
-  error: z.string().nullable(),
-  provider: z.string().nullable(),
-  cacheHit: z.boolean(),
-  waiting: z.boolean().optional(),
-  createdAt: z.iso.datetime(),
-  startedAt: z.iso.datetime().nullable(),
-  finishedAt: z.iso.datetime().nullable(),
-});
+export function createNodeRunSchema<T extends NodeDefinitions>(registry: T) {
+  return z.object({
+    runId: z.uuid(),
+    spaceId: z.uuid(),
+    nodeId: z.uuid(),
+    nodeType: z.enum(
+      Object.keys(registry) as [
+        Extract<keyof T, string>,
+        ...Extract<keyof T, string>[],
+      ],
+    ),
+    sequence: z.string().regex(/^\d+$/),
+    batchId: z.uuid().nullable(),
+    status: runStatusSchema,
+    inputHash: z.string(),
+    output: runOutputSchema.nullable(),
+    error: z.string().nullable(),
+    provider: z.string().nullable(),
+    model: z.string().nullable().optional(),
+    cacheHit: z.boolean(),
+    waiting: z.boolean().optional(),
+    createdAt: z.iso.datetime(),
+    startedAt: z.iso.datetime().nullable(),
+    finishedAt: z.iso.datetime().nullable(),
+  });
+}
+export const nodeRunSchema = createNodeRunSchema(nodeRegistry);
 export type NodeRun = z.infer<typeof nodeRunSchema>;
 export const runEventSchema = nodeRunSchema.extend({
   type: z.literal('run.updated'),
@@ -89,24 +83,24 @@ export async function inputHash(value: unknown): Promise<string> {
 }
 
 export function executionHash(
-  type: NodeType,
+  type: string,
   params: Record<string, unknown>,
-  resolved: {
-    prompt?: string;
-    references: { sha256: string }[];
-    error?: string;
-  },
+  resolved: ResolvedInputs,
 ) {
-  const inputs: { port: string; values: string[] }[] = [];
-  // Keep invalid connected inputs distinct from a valid node with no connections.
-  if (resolved.error) inputs.push({ port: 'error', values: [resolved.error] });
-  if (resolved.prompt !== undefined)
-    inputs.push({ port: 'prompt', values: [resolved.prompt] });
-  if (resolved.references.length)
-    inputs.push({
-      port: 'references',
-      values: resolved.references.map((image) => image.sha256),
-    });
-  inputs.sort((a, b) => (a.port < b.port ? -1 : a.port > b.port ? 1 : 0));
-  return inputHash({ type, params, inputs });
+  const inputs = Object.keys(resolved.ports)
+    .sort()
+    .map((port) => ({
+      port,
+      values: resolved.ports[port].map((item) =>
+        item.kind === 'text'
+          ? { kind: 'text', value: item.value }
+          : { kind: item.mediaKind, sha256: item.sha256 },
+      ),
+    }));
+  return inputHash({
+    type,
+    params,
+    inputs,
+    ...(resolved.error ? { error: resolved.error } : {}),
+  });
 }
