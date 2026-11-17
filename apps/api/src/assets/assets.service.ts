@@ -153,6 +153,14 @@ export class AssetsService {
     await this.spaces.get(user, asset.spaceId);
     return asset;
   }
+  async providerReference(spaceId: string, id: string) {
+    const asset = await this.assets.findOneBy({ id, spaceId });
+    if (!asset)
+      throw new Error(
+        'A reference image is unavailable. Upload or run its upstream node again.',
+      );
+    return { url: await this.storage.signedUrl(asset.storageKey) };
+  }
   async metadata(user: User, id: string): Promise<Asset> {
     return dto(await this.owned(user, id));
   }

@@ -72,10 +72,14 @@ Graph writes validate node params, port compatibility, existing endpoints, dupli
 - Choose **Select** (`V`) to move/select nodes, or **Hand** (`H`) to pan. Hold **Space** while dragging to pan temporarily. Scroll to zoom; use the lower-right controls for zoom and Fit view.
 - **Delete/Backspace** removes selected nodes/edges. **Ctrl/Cmd+Z** and **Ctrl/Cmd+Shift+Z** undo/redo graph edits; viewport changes are excluded. Editing a textarea retains its native keyboard behavior.
 - Drop/choose an image in Image Upload. The generator's **+** creates and connects a reference upload node. Uploads accept PNG, JPEG, WebP, AVIF and GIF, up to `MAX_UPLOAD_MB` and 16 megapixels. The API validates the decoded format, normalizes orientation and stores a metadata-free PNG in MinIO. Animated uploads use the first frame. Existing local-only references from earlier phases must be selected again.
-- Type a prompt directly in Image Generator, set count/ratio/resolution, and click **Run**. It waits for uploads and autosave, queues one execution, and displays the mock PNGs after roughly 2–4 seconds plus image processing. Errors offer **Retry**. Running status and outputs survive refresh; SSE reconnects and history snapshots recover missed events.
+- Type a prompt directly in Image Generator, or connect a Text output to its purple prompt input. Set count/ratio/resolution and click **Run**. It waits for uploads and autosave, queues one execution, and displays the mock PNGs after roughly 2–4 seconds plus image processing. Errors offer **Retry**. Running status and outputs survive refresh; SSE reconnects and history snapshots recover missed events.
 - Graphs, names, node params, edges, viewport, uploaded images and generated results survive refresh. Only image metadata is stored in PostgreSQL; bytes live in MinIO. Save-as-copy duplicates uploaded references into the new Space. Execution history/results remain with the original Space.
 
-Phase 3 runs individual nodes using their own saved params. Connected Text and image references are editable and persistent, but their values will flow through edges in Phase 4. Enter the generator prompt locally for now. Run-all, caching, staleness and cancellation follow in Phase 5.
+Connected Text replaces the local generator prompt; the purple badge names its source and the prompt field shows the connected value read-only. Disconnect the purple edge to restore the preserved local prompt. Text is read directly from the saved graph without running a job. An empty connected Text fails clearly, even if a local prompt exists.
+
+Connect Image Upload or Image Generator outputs to a generator's green references input. Uploads use their saved asset directly. Generator references use **all images from its latest succeeded run**, even if a newer run is queued, running or failed. Run upstream generators first, then downstream generators individually. A connected source without usable output produces a named error and Retry. Disconnecting references removes those optional inputs; disconnecting prompt uses the local prompt, or gives a clear missing-prompt error if it is empty.
+
+Each run snapshots connected values when requested. Later graph edits or upstream runs affect the next request. The worker creates private S3 GET URLs valid for 15 minutes and passes them to the provider; signed URLs are never stored in graph/run JSON. The mock downloads and hashes references, so changing image content changes its deterministic preview. Run-all, caching, staleness and cancellation follow in Phase 5.
 
 ## Configuration
 
@@ -97,7 +101,7 @@ Copy `.env.example` to root `.env`; the API and Compose read it. Never commit `.
 
 The optional Vite development server proxies `/health` and `/api/*` to port 3000. If changing the host API port for that workflow, update `apps/web/vite.config.ts` too. Docker's Nginx proxy uses the fixed internal API port. No frontend secrets are exposed.
 
-`IMAGE_PROVIDER=mock` generates deterministic gradient PNGs with the prompt printed on them, without an external AI account. To implement another provider, follow `apps/api/src/providers/custom-image.provider.example.ts`, implement `ImageProvider`, and register its factory in `RunsModule` before changing the environment value. Unknown provider names fail startup clearly. Keep credentials and vendor logic in the adapter. To exercise Retry, set `MOCK_FAILURE_RATE=1`, recreate API, run a node, then restore `0`, recreate API and click Retry. Provider timeouts and lost workers also produce retryable errors.
+`IMAGE_PROVIDER=mock` generates deterministic gradient PNGs with the prompt printed on them, without an external AI account. To implement another provider, follow `apps/api/src/providers/custom-image.provider.example.ts`, implement `ImageProvider`, and register its factory in `RunsModule` before changing the environment value. Unknown provider names fail startup clearly. Keep credentials and vendor logic in the adapter. The configured S3 endpoint must be reachable by that provider: Compose's internal `minio` hostname works for the local mock; a remote provider requires externally reachable object storage or a dedicated signing endpoint in its adapter. To exercise Retry, set `MOCK_FAILURE_RATE=1`, recreate API, run a node, then restore `0`, recreate API and click Retry. Provider timeouts and lost workers also produce retryable errors.
 
 ## Layout and roadmap
 
@@ -107,4 +111,4 @@ The optional Vite development server proxies `/health` and `/api/*` to port 3000
 - `docs/DECISIONS.md`: implementation assumptions.
 - `SPACES_PLAN.md`: phase acceptance criteria and remaining prototype scope.
 
-Completed through Phase 3 single-node runs. Next: Phase 4 connected inputs; Phase 5 graph execution, caching, and cancellation. See `docs/PHASE_3_CHECKS.md` for verification evidence.
+Completed through Phase 4 connected inputs. Next: Phase 5 graph execution, caching, and cancellation. See `docs/PHASE_3_CHECKS.md` and `docs/PHASE_4_CHECKS.md` for verification evidence.

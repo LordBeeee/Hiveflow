@@ -17,6 +17,7 @@ import { ImageGeneratorExecutor } from '../executors/image-generator.executor';
 import type { NodeExecutor } from '../executors/node-executor';
 import { NodeRunEntity } from './node-run.entity';
 import { RunEvents } from './run-events';
+import { InputResolver } from '../executors/input-resolver';
 
 export function runDto(run: NodeRunEntity): NodeRun {
   return {
@@ -51,6 +52,7 @@ export class RunsService {
     text: TextExecutor,
     upload: ImageUploadExecutor,
     generator: ImageGeneratorExecutor,
+    private readonly inputResolver: InputResolver,
   ) {
     this.executors = new Map(
       [text, upload, generator].map((executor) => [executor.type, executor]),
@@ -65,18 +67,26 @@ export class RunsService {
       throw new BadRequestException(
         'Save valid node parameters before running.',
       );
+    const inputs = await this.inputResolver.resolve(spaceId, space.graph, node);
     const hash = await inputHash({
       type: node.type,
       params: parsed.data,
-      inputs: [],
+      inputs,
     });
     let run: NodeRunEntity | null = null;
     for (let attempt = 0; attempt < 3 && !run; attempt++) {
       const rows: { id: string }[] = await this.runs.query(
-        `INSERT INTO node_runs (space_id, node_id, node_type, status, input_hash, params)
-        VALUES ($1, $2, $3, 'queued', $4, $5::jsonb)
+        `INSERT INTO node_runs (space_id, node_id, node_type, status, input_hash, params, inputs)
+        VALUES ($1, $2, $3, 'queued', $4, $5::jsonb, $6::jsonb)
         ON CONFLICT (space_id, node_id, input_hash) WHERE status IN ('queued','running') DO NOTHING RETURNING id`,
-        [spaceId, nodeId, node.type, hash, JSON.stringify(parsed.data)],
+        [
+          spaceId,
+          nodeId,
+          node.type,
+          hash,
+          JSON.stringify(parsed.data),
+          JSON.stringify(inputs),
+        ],
       );
       run = rows.length
         ? await this.runs.findOneByOrFail({ id: rows[0].id })
@@ -146,12 +156,14 @@ export class RunsService {
       this.config.getOrThrow<number>('PROVIDER_TIMEOUT_MS'),
     );
     try {
+      if (run.inputs?.error) throw new Error(run.inputs.error);
       const executor = this.executors.get(run.nodeType);
       if (!executor) throw new Error('Unsupported node type');
       const result = await Promise.race([
         executor.execute({
           spaceId: run.spaceId,
           params: run.params,
+          inputs: run.inputs ?? undefined,
           signal: controller.signal,
         }),
         aborted,

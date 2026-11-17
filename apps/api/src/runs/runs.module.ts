@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AssetsModule } from '../assets/assets.module';
 import { SpacesModule } from '../spaces/spaces.module';
 import { TextExecutor } from '../executors/text.executor';
+import { InputResolver } from '../executors/input-resolver';
 import { ImageUploadExecutor } from '../executors/image-upload.executor';
 import { ImageGeneratorExecutor } from '../executors/image-generator.executor';
 import { IMAGE_PROVIDER } from '../providers/image-provider';
@@ -23,6 +24,7 @@ import { RunsController } from './runs.controller';
   controllers: [RunsController],
   providers: [
     RunsService,
+    InputResolver,
     RunEvents,
     NodeRunQueue,
     NodeRunProcessor,

@@ -17,6 +17,18 @@ export function ImageGeneratorNode({
   const output = useRunStore((state) => state.outputs[id]);
   const requesting = useRunStore((state) => state.requesting[id]);
   const requestError = useRunStore((state) => state.requestErrors[id]);
+  const edges = useGraphStore((state) => state.edges);
+  const nodes = useGraphStore((state) => state.nodes);
+  const promptEdge = edges.find(
+    (edge) => edge.target === id && edge.targetHandle === 'prompt',
+  );
+  const promptSource = nodes.find((node) => node.id === promptEdge?.source);
+  const sourceLabel = promptSource
+    ? `${nodeRegistry[promptSource.type].label} #${nodes.filter((node) => node.type === promptSource.type).findIndex((node) => node.id === promptSource.id) + 1}`
+    : 'connected Text';
+  const referenceCount = edges.filter(
+    (edge) => edge.target === id && edge.targetHandle === 'references',
+  ).length;
   const busy =
     requesting || run?.status === 'queued' || run?.status === 'running';
   const images = output?.image ?? [];
@@ -92,6 +104,24 @@ export function ImageGeneratorNode({
         </div>
       )}
       <div className="generator-composer nodrag nopan">
+        {(promptEdge || referenceCount > 0) && (
+          <div className="connected-inputs" aria-label="Connected inputs">
+            {promptEdge && (
+              <span
+                className="connected-prompt"
+                title="The connected text replaces the local prompt for this run. Disconnect it to edit the local prompt."
+              >
+                Prompt from {sourceLabel} · local prompt overridden
+              </span>
+            )}
+            {referenceCount > 0 && (
+              <span className="connected-references">
+                {referenceCount} reference{' '}
+                {referenceCount === 1 ? 'input' : 'inputs'} connected
+              </span>
+            )}
+          </div>
+        )}
         <div className="prompt-row">
           <button
             className="attach-button"
@@ -116,9 +146,26 @@ export function ImageGeneratorNode({
             className="nowheel"
             aria-label={`Image Generator #${data.number} prompt`}
             placeholder="Describe the image you want to generate…"
-            value={prompt}
+            value={
+              promptSource?.type === 'text'
+                ? String(promptSource.params.value ?? '')
+                : prompt
+            }
+            readOnly={!!promptEdge}
+            aria-describedby={promptEdge ? `prompt-source-${id}` : undefined}
+            title={
+              promptEdge
+                ? `Using ${sourceLabel}; disconnect the purple edge to edit this local prompt.`
+                : undefined
+            }
             onChange={(event) => update({ prompt: event.target.value })}
           />
+          {promptEdge && (
+            <span id={`prompt-source-${id}`} className="sr-only">
+              Using connected {sourceLabel}. Local prompt is preserved and
+              overridden.
+            </span>
+          )}
         </div>
         <div className="generator-settings">
           <div className="count-control">

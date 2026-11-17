@@ -7,12 +7,14 @@ import {
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Readable } from 'node:stream';
 
 export abstract class StorageService {
   abstract put(key: string, bytes: Buffer, mime: string): Promise<void>;
   abstract get(key: string): Promise<Readable>;
   abstract remove(key: string): Promise<void>;
+  abstract signedUrl(key: string): Promise<string>;
 }
 
 @Injectable()
@@ -66,6 +68,13 @@ export class S3StorageService
   async remove(key: string) {
     await this.client.send(
       new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),
+    );
+  }
+  signedUrl(key: string) {
+    return getSignedUrl(
+      this.client,
+      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+      { expiresIn: 900 },
     );
   }
   onModuleDestroy() {

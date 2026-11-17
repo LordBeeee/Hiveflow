@@ -15,12 +15,20 @@ export class ImageGeneratorExecutor implements NodeExecutor {
   ) {}
   async execute(context: ExecutionContext) {
     const params = imageGeneratorParamsSchema.parse(context.params);
-    if (!params.prompt.trim())
+    const prompt = context.inputs?.prompt ?? params.prompt;
+    if (!prompt.trim())
       throw new Error(
-        'Enter a prompt in this Image Generator before running it.',
+        'No prompt is available. Connect a non-empty Text node or enter a local prompt in this Image Generator.',
       );
+    const references = [];
+    for (const reference of context.inputs?.references ?? []) {
+      context.signal.throwIfAborted();
+      references.push(
+        await this.assets.providerReference(context.spaceId, reference.assetId),
+      );
+    }
     const result = await this.provider.generate(
-      { ...params, references: [] },
+      { ...params, prompt, references },
       context.signal,
     );
     const image = [];

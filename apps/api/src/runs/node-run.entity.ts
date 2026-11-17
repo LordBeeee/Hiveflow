@@ -5,6 +5,7 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import type { NodeRun, NodeType, RunOutput } from '@hiveflow/shared';
+import type { ResolvedInputs } from '../executors/resolved-inputs';
 
 @Entity('node_runs')
 export class NodeRunEntity {
@@ -19,6 +20,7 @@ export class NodeRunEntity {
   @Column({ type: 'text' }) status!: NodeRun['status'];
   @Column({ name: 'input_hash', type: 'text' }) inputHash!: string;
   @Column({ type: 'jsonb' }) params!: Record<string, unknown>;
+  @Column({ type: 'jsonb', nullable: true }) inputs!: ResolvedInputs | null;
   @Column({ type: 'jsonb', nullable: true }) output!: RunOutput | null;
   @Column({ type: 'text', nullable: true }) error!: string | null;
   @Column({ type: 'text', nullable: true }) provider!: string | null;

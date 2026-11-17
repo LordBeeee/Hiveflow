@@ -27,13 +27,19 @@ export function mockDimensions(
     height: Math.round((size * b) / Math.max(a, b)),
   };
 }
-export async function renderMockImage(request: ImageRequest, index: number) {
+export async function renderMockImage(
+  request: ImageRequest,
+  index: number,
+  referenceHashes: string[] = [],
+) {
   const { width, height } = mockDimensions(
     request.aspectRatio,
     request.resolution,
   );
   const hash = createHash('sha256')
-    .update(`${request.prompt}|${request.model}|${index}`)
+    .update(
+      JSON.stringify([request.prompt, request.model, index, referenceHashes]),
+    )
     .digest('hex');
   const fontSize = Math.max(18, Math.round(Math.min(width, height) / 24));
   // eslint-disable-next-line no-control-regex -- Strip XML-invalid control characters from user text.
@@ -62,10 +68,24 @@ export class MockImageProvider implements ImageProvider {
     signal.throwIfAborted();
     if (Math.random() < this.config.getOrThrow<number>('MOCK_FAILURE_RATE'))
       throw new Error('Mock provider failed. Please retry.');
+    const referenceHashes: string[] = [];
+    for (const reference of request.references) {
+      signal.throwIfAborted();
+      const response = await fetch(reference.url, { signal });
+      if (!response.ok)
+        throw new Error(
+          'A reference image could not be downloaded. Run or upload the upstream node again.',
+        );
+      referenceHashes.push(
+        createHash('sha256')
+          .update(Buffer.from(await response.arrayBuffer()))
+          .digest('hex'),
+      );
+    }
     const images = [];
     for (let index = 0; index < request.count; index++) {
       signal.throwIfAborted();
-      images.push(await renderMockImage(request, index));
+      images.push(await renderMockImage(request, index, referenceHashes));
     }
     signal.throwIfAborted();
     return { images };

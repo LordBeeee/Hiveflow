@@ -218,6 +218,138 @@ try {
     async () =>
       (await request(`/spaces/${id}/runs`)).body[0].status === 'succeeded',
   );
+  // Phase 4: resolve saved connected inputs and consume signed object URLs inside the provider.
+  const text = {
+    id: randomUUID(),
+    type: 'text',
+    position: { x: 0, y: 0 },
+    params: { value: 'Connected text overrides the local prompt' },
+  };
+  const uploadNode = {
+    id: randomUUID(),
+    type: 'image_upload',
+    position: { x: 0, y: 200 },
+    params: { assetId: asset.body.id },
+  };
+  const generator = () => ({
+    id: randomUUID(),
+    type: 'image_generator',
+    position: { x: 600, y: 100 },
+    params: {
+      ...shared.nodeRegistry.image_generator.defaultParams,
+      prompt: 'local fallback',
+      count: 2,
+    },
+  });
+  const first = generator();
+  const second = generator();
+  graph.nodes.push(text, uploadNode, first, second);
+  const connect = (source, target, port) =>
+    graph.edges.push({
+      id: randomUUID(),
+      source: source.id,
+      sourceHandle: source.type === 'text' ? 'text' : 'image',
+      target: target.id,
+      targetHandle: port,
+    });
+  connect(text, first, 'prompt');
+  connect(uploadNode, first, 'references');
+  connect(text, second, 'prompt');
+  connect(first, second, 'references');
+  async function saveGraph() {
+    const version = (await request(`/spaces/${id}`)).body.version;
+    assert.equal(
+      (await request(`/spaces/${id}`, 'PATCH', { version, graph })).status,
+      200,
+    );
+  }
+  async function start(node) {
+    const response = await request(
+      `/spaces/${id}/nodes/${node.id}/run`,
+      'POST',
+      {},
+    );
+    assert.equal(response.status, 201);
+    return response.body.runId;
+  }
+  async function finished(node, runId) {
+    return until(async () => {
+      const run = (
+        await request(`/spaces/${id}/runs?nodeId=${node.id}`)
+      ).body.find((row) => row.runId === runId);
+      return ['succeeded', 'failed'].includes(run.status) && run;
+    });
+  }
+  await saveGraph();
+  const noUpstream = await finished(second, await start(second));
+  assert.equal(noUpstream.status, 'failed');
+  assert.match(
+    noUpstream.error,
+    /Upstream node 'Image Generator #2' has no output/,
+  );
+  const firstId = await start(first);
+  text.params.value = 'Text edited after the upstream run started';
+  await saveGraph();
+  const firstRun = await finished(first, firstId);
+  assert.equal(firstRun.status, 'succeeded', firstRun.error);
+  const firstInputs = (
+    await db.query('SELECT inputs FROM node_runs WHERE id=$1', [firstId])
+  ).rows[0].inputs;
+  assert.equal(firstInputs.prompt, 'Connected text overrides the local prompt');
+  assert.equal(firstInputs.references[0].assetId, asset.body.id);
+  assert(!JSON.stringify(firstInputs).includes('X-Amz')); // Never persist signed credentials.
+  assert.equal(
+    (
+      await db.query(
+        'SELECT count(*) FROM node_runs WHERE space_id=$1 AND node_id=$2',
+        [id, text.id],
+      )
+    ).rows[0].count,
+    '0',
+  );
+  // A newer failure must not hide a usable succeeded output.
+  await db.query(
+    "INSERT INTO node_runs (space_id,node_id,node_type,status,input_hash,params,error) VALUES ($1,$2,'image_generator','failed',$3,$4,'injected later failure')",
+    [id, first.id, randomUUID(), JSON.stringify(first.params)],
+  );
+  const chainedId = await start(second);
+  const chained = await finished(second, chainedId);
+  assert.equal(chained.status, 'succeeded', chained.error);
+  const chainedInputs = (
+    await db.query('SELECT inputs FROM node_runs WHERE id=$1', [chainedId])
+  ).rows[0].inputs;
+  assert.equal(chainedInputs.prompt, text.params.value);
+  assert.deepEqual(
+    chainedInputs.references.map((ref) => ref.assetId),
+    firstRun.output.image.map((image) => image.assetId),
+  );
+  const repeatedId = await start(second);
+  const repeated = await finished(second, repeatedId);
+  assert.equal(repeated.status, 'succeeded', repeated.error);
+  const hashes = await db.query(
+    'SELECT sha256 FROM assets WHERE id=ANY($1::uuid[]) ORDER BY sha256',
+    [chained.output.image.map((image) => image.assetId)],
+  );
+  const repeatHashes = await db.query(
+    'SELECT sha256 FROM assets WHERE id=ANY($1::uuid[]) ORDER BY sha256',
+    [repeated.output.image.map((image) => image.assetId)],
+  );
+  assert.deepEqual(hashes.rows, repeatHashes.rows);
+  graph.edges = graph.edges.filter((edge) => edge.target !== second.id);
+  second.params.prompt = '';
+  await saveGraph();
+  const disconnected = await finished(second, await start(second));
+  assert.equal(disconnected.status, 'failed');
+  assert.match(disconnected.error, /No prompt is available/);
+  second.params.prompt = 'Local prompt after disconnect';
+  await saveGraph();
+  assert.equal(
+    (await finished(second, await start(second))).status,
+    'succeeded',
+  );
+  console.log(
+    'Dataflow integration passed: synchronous Text, upload reference, chained latest succeeded images, signed URL consumption, input snapshots, deterministic reference content, missing upstream, disconnect and local fallback.',
+  );
   const recoveryId = randomUUID();
   await db.query(
     "INSERT INTO node_runs (id,space_id,node_id,node_type,status,input_hash,params) VALUES ($1,$2,$3,'text','queued',$4,$5)",

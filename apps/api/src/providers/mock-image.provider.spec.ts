@@ -10,6 +10,60 @@ const request = {
   model: 'auto',
 };
 describe('MockImageProvider', () => {
+  afterEach(() => jest.restoreAllMocks());
+  it('downloads signed references and hashes content instead of expiring URL signatures', async () => {
+    const download = jest
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async () => new Response('reference bytes'));
+    const provider = new MockImageProvider(
+      new ConfigService({ MOCK_FAILURE_RATE: 0 }),
+      async () => {},
+    );
+    const signal = new AbortController().signal;
+    const a = await provider.generate(
+      {
+        ...request,
+        references: [{ url: 'https://storage.example/a?signature=1' }],
+      },
+      signal,
+    );
+    const b = await provider.generate(
+      {
+        ...request,
+        references: [{ url: 'https://storage.example/a?signature=2' }],
+      },
+      signal,
+    );
+    expect(download).toHaveBeenCalledWith(
+      'https://storage.example/a?signature=1',
+      { signal },
+    );
+    expect(a.images[0].bytes.equals(b.images[0].bytes)).toBe(true);
+    download.mockResolvedValue(new Response('different reference'));
+    const c = await provider.generate(
+      { ...request, references: [{ url: 'https://storage.example/a' }] },
+      signal,
+    );
+    expect(a.images[0].bytes.equals(c.images[0].bytes)).toBe(false);
+  });
+  it('reports a failed signed reference download clearly', async () => {
+    jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('', { status: 403 }));
+    const provider = new MockImageProvider(
+      new ConfigService({ MOCK_FAILURE_RATE: 0 }),
+      async () => {},
+    );
+    await expect(
+      provider.generate(
+        {
+          ...request,
+          references: [{ url: 'https://storage.example/missing' }],
+        },
+        new AbortController().signal,
+      ),
+    ).rejects.toThrow('could not be downloaded');
+  });
   it('returns deterministic valid PNG images with truthful dimensions and count', async () => {
     const provider = new MockImageProvider(
       new ConfigService({ MOCK_FAILURE_RATE: 0 }),

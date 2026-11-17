@@ -8,6 +8,7 @@ import type { ImageGeneratorExecutor } from '../executors/image-generator.execut
 import { RunsService } from './runs.service';
 import type { NodeRunEntity } from './node-run.entity';
 import { RunEvents } from './run-events';
+import type { InputResolver } from '../executors/input-resolver';
 
 function setup(claimed = true) {
   const row = {
@@ -20,6 +21,7 @@ function setup(claimed = true) {
     status: 'running',
     inputHash: 'a'.repeat(64),
     params: { value: 'snapshot' },
+    inputs: null,
     output: null,
     error: null,
     provider: null,
@@ -57,6 +59,7 @@ function setup(claimed = true) {
     { type: 'text', execute } as unknown as TextExecutor,
     { type: 'image_upload' } as ImageUploadExecutor,
     { type: 'image_generator' } as ImageGeneratorExecutor,
+    {} as InputResolver,
   );
   return { service, execute, changes, builder, row, emit };
 }
@@ -83,4 +86,17 @@ it('aborts a hung executor and records a retryable timeout failure', async () =>
   expect(changes[1].status).toBe('failed');
   expect(changes[1].error).toContain('provider_timeout');
   expect(execute.mock.calls[0][0].signal.aborted).toBe(true);
+});
+it('records an input resolution failure before invoking an executor', async () => {
+  const { service, execute, row, changes } = setup();
+  row.inputs = {
+    references: [],
+    error: "Upstream node 'Text #1' has no output",
+  };
+  await service.process(row.id);
+  expect(execute).not.toHaveBeenCalled();
+  expect(changes[1]).toMatchObject({
+    status: 'failed',
+    error: row.inputs.error,
+  });
 });

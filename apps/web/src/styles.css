@@ -1148,3 +1148,27 @@ textarea:focus-visible {
     transform: rotate(360deg);
   }
 }
+.connected-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 8px 12px 0;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.connected-inputs span {
+  padding: 3px 6px;
+  border-radius: 5px;
+}
+.connected-prompt {
+  color: #d1bffa;
+  background: #b5a0f217;
+}
+.connected-references {
+  color: #c6dd9b;
+  background: #b5ce7817;
+}
+.generator-composer textarea[readonly] {
+  opacity: 0.55;
+  cursor: default;
+}
