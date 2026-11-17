@@ -40,6 +40,7 @@ export class ImageGeneratorExecutor implements NodeExecutor {
         url: asset.url,
         width: asset.width,
         height: asset.height,
+        sha256: asset.sha256,
       });
     }
     context.signal.throwIfAborted();

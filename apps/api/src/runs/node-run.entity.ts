@@ -21,6 +21,8 @@ export class NodeRunEntity {
   @Column({ name: 'input_hash', type: 'text' }) inputHash!: string;
   @Column({ type: 'jsonb' }) params!: Record<string, unknown>;
   @Column({ type: 'jsonb', nullable: true }) inputs!: ResolvedInputs | null;
+  @Column({ type: 'boolean', default: true }) prepared!: boolean;
+  @Column({ type: 'integer', nullable: true }) level!: number | null;
   @Column({ type: 'jsonb', nullable: true }) output!: RunOutput | null;
   @Column({ type: 'text', nullable: true }) error!: string | null;
   @Column({ type: 'text', nullable: true }) provider!: string | null;

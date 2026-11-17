@@ -12,11 +12,13 @@ export function ImageGeneratorNode({
   selected,
 }: NodeProps<CanvasNode>) {
   const input = useRef<HTMLInputElement>(null);
-  const { runNode, attachReference } = useExecution();
+  const { runNode, attachReference, cancelNode } = useExecution();
   const run = useRunStore((state) => state.nodes[id]);
   const output = useRunStore((state) => state.outputs[id]);
   const requesting = useRunStore((state) => state.requesting[id]);
   const requestError = useRunStore((state) => state.requestErrors[id]);
+  const stale = useRunStore((state) => state.stale[id]);
+  const previewProvider = useRunStore((state) => state.successes[id]?.provider);
   const edges = useGraphStore((state) => state.edges);
   const nodes = useGraphStore((state) => state.nodes);
   const promptEdge = edges.find(
@@ -80,15 +82,43 @@ export function ImageGeneratorNode({
               {requesting
                 ? 'Preparing your run…'
                 : run?.status === 'queued'
-                  ? 'Queued…'
+                  ? run.waiting
+                    ? 'Waiting for inputs…'
+                    : 'Queued…'
                   : 'Generating…'}
             </span>
           </div>
         )}
         {!busy && images.length > 0 && (
           <span className="result-label">
-            {run?.provider === 'mock' ? 'MOCK PREVIEW' : 'GENERATED IMAGE'}
+            {previewProvider === 'mock' ? 'MOCK PREVIEW' : 'GENERATED IMAGE'}
           </span>
+        )}
+      </div>
+      <div className="execution-status nodrag nopan">
+        {stale && <span className="stale-badge">Stale · inputs changed</span>}
+        {run?.cacheHit && <span className="cache-badge">Cache hit</span>}
+        {(run?.status === 'canceled' || run?.status === 'skipped') && (
+          <span>
+            {run.status}
+            {run.error ? ` · ${run.error}` : ''}
+          </span>
+        )}
+        {busy && run && ['queued', 'running'].includes(run.status) && (
+          <button
+            aria-label={`Cancel Image Generator #${data.number}`}
+            onClick={() => void cancelNode(id)}
+          >
+            Cancel run
+          </button>
+        )}
+        {!busy && run && (
+          <button
+            aria-label={`Force rerun Image Generator #${data.number}`}
+            onClick={() => void runNode(id, true)}
+          >
+            Force rerun
+          </button>
         )}
       </div>
       {error && (

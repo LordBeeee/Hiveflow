@@ -49,7 +49,20 @@ export function useExecutionActions(
         const id = useGraphStore.getState().addReference(nodeId, null);
         if (id) await uploadFile(id, file);
       },
-      runNode: async (nodeId) => {
+      cancelNode: async (nodeId) => {
+        const run = useRunStore.getState().nodes[nodeId];
+        if (!run) return;
+        try {
+          useRunStore.getState().merge(await executionApi.cancel(run.runId));
+        } catch (error) {
+          useUIStore
+            .getState()
+            .notify(
+              error instanceof Error ? error.message : 'Could not cancel run',
+            );
+        }
+      },
+      runNode: async (nodeId, force = false) => {
         if (requests.current.has(nodeId)) return requests.current.get(nodeId);
         const task = (async () => {
           useRunStore.getState().setRequest(nodeId, true);
@@ -62,7 +75,7 @@ export function useExecutionActions(
                 .map(([, upload]) => upload.promise),
             );
             await flushRef.current();
-            await executionApi.run(spaceId, nodeId);
+            await executionApi.run(spaceId, nodeId, force);
             const runs = await executionApi.history(spaceId);
             runs.forEach((run) => useRunStore.getState().merge(run));
           } catch (error) {

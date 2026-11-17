@@ -50,6 +50,9 @@ jobs:
               node -e 'const h = require("./health.json"); if (h.status !== "ok" || h.app !== "Hiveflow") process.exit(1)'
               node apps/api/scripts/smoke-spaces.mjs
               node apps/api/scripts/smoke-runs.mjs
+              node apps/api/scripts/smoke-batches.mjs
+              npx playwright install --with-deps chromium
+              npm run test:e2e -w @hiveflow/web
               exit 0
             fi
             sleep 1

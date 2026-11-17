@@ -7,7 +7,12 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import { inputHash, nodeRegistry, type NodeRun } from '@hiveflow/shared';
+import {
+  executionHash,
+  nodeRegistry,
+  type NodeRun,
+  type SpaceGraph,
+} from '@hiveflow/shared';
 import type { User } from '../auth/current-user';
 import { SpacesService } from '../spaces/spaces.service';
 import { NodeRunQueue } from '../queue/node-run.queue';
@@ -18,6 +23,7 @@ import type { NodeExecutor } from '../executors/node-executor';
 import { NodeRunEntity } from './node-run.entity';
 import { RunEvents } from './run-events';
 import { InputResolver } from '../executors/input-resolver';
+import { RunCache } from './run-cache';
 
 export function runDto(run: NodeRunEntity): NodeRun {
   return {
@@ -33,6 +39,7 @@ export function runDto(run: NodeRunEntity): NodeRun {
     error: run.error,
     provider: run.provider,
     cacheHit: run.cacheHit,
+    waiting: !run.prepared,
     createdAt: run.createdAt.toISOString(),
     startedAt: run.startedAt?.toISOString() ?? null,
     finishedAt: run.finishedAt?.toISOString() ?? null,
@@ -42,6 +49,7 @@ export function runDto(run: NodeRunEntity): NodeRun {
 export class RunsService {
   private readonly logger = new Logger(RunsService.name);
   private readonly executors: Map<string, NodeExecutor>;
+  private readonly active = new Map<string, AbortController>();
   constructor(
     @InjectRepository(NodeRunEntity)
     private readonly runs: Repository<NodeRunEntity>,
@@ -53,12 +61,13 @@ export class RunsService {
     upload: ImageUploadExecutor,
     generator: ImageGeneratorExecutor,
     private readonly inputResolver: InputResolver,
+    private readonly cache: RunCache,
   ) {
     this.executors = new Map(
       [text, upload, generator].map((executor) => [executor.type, executor]),
     );
   }
-  async start(user: User, spaceId: string, nodeId: string) {
+  async start(user: User, spaceId: string, nodeId: string, force = false) {
     const space = await this.spaces.get(user, spaceId);
     const node = space.graph.nodes.find((candidate) => candidate.id === nodeId);
     if (!node) throw new NotFoundException('Node not found in the saved space');
@@ -68,16 +77,17 @@ export class RunsService {
         'Save valid node parameters before running.',
       );
     const inputs = await this.inputResolver.resolve(spaceId, space.graph, node);
-    const hash = await inputHash({
-      type: node.type,
-      params: parsed.data,
-      inputs,
-    });
+    const hash = await executionHash(node.type, parsed.data, inputs);
+    const cached =
+      !force && !inputs.error
+        ? await this.cache.find(spaceId, nodeId, hash)
+        : null;
     let run: NodeRunEntity | null = null;
     for (let attempt = 0; attempt < 3 && !run; attempt++) {
       const rows: { id: string }[] = await this.runs.query(
-        `INSERT INTO node_runs (space_id, node_id, node_type, status, input_hash, params, inputs)
-        VALUES ($1, $2, $3, 'queued', $4, $5::jsonb, $6::jsonb)
+        `INSERT INTO node_runs (space_id, node_id, node_type, status, input_hash, params, inputs, output, provider, cache_hit, finished_at)
+        SELECT $1, $2, $3, $7, $4, $5::jsonb, $6::jsonb, $8::jsonb, $9, $10, CASE WHEN $10 THEN now() ELSE NULL END
+        WHERE NOT EXISTS (SELECT 1 FROM node_runs WHERE space_id=$1 AND node_id=$2 AND input_hash=$4 AND status IN ('queued','running'))
         ON CONFLICT (space_id, node_id, input_hash) WHERE status IN ('queued','running') DO NOTHING RETURNING id`,
         [
           spaceId,
@@ -86,6 +96,10 @@ export class RunsService {
           hash,
           JSON.stringify(parsed.data),
           JSON.stringify(inputs),
+          cached ? 'succeeded' : 'queued',
+          JSON.stringify(cached?.output ?? null),
+          cached?.provider ?? null,
+          !!cached,
         ],
       );
       run = rows.length
@@ -104,18 +118,25 @@ export class RunsService {
       throw new BadRequestException('Could not queue this node. Please retry.');
     this.events.emit(runDto(run));
     // PostgreSQL is the source of truth. Reconciliation repairs this enqueue gap on Redis failure.
-    await this.queue
-      .enqueue(run.id)
-      .catch(() =>
-        this.logger.warn('Enqueue deferred; reconciliation will retry'),
-      );
+    if (run.status === 'queued')
+      await this.queue
+        .enqueue(run.id)
+        .catch(() =>
+          this.logger.warn('Enqueue deferred; reconciliation will retry'),
+        );
     return { runId: run.id };
   }
-  async history(user: User, spaceId: string, nodeId?: string) {
+  async history(
+    user: User,
+    spaceId: string,
+    nodeId?: string,
+    succeeded = false,
+  ) {
     await this.spaces.get(user, spaceId);
     const query = this.runs
       .createQueryBuilder('run')
       .where('run.space_id = :spaceId', { spaceId });
+    if (succeeded) query.andWhere("run.status = 'succeeded'");
     if (nodeId)
       query
         .andWhere('run.node_id = :nodeId', { nodeId })
@@ -129,16 +150,35 @@ export class RunsService {
     return (await query.getMany()).map(runDto);
   }
   async process(id: string) {
-    const claimed = await this.runs
-      .createQueryBuilder()
-      .update(NodeRunEntity)
-      .set({ status: 'running', startedAt: () => 'CURRENT_TIMESTAMP' })
-      .where('id = :id AND status = :status', { id, status: 'queued' })
-      .execute();
+    const candidate = await this.runs.findOneBy({ id });
+    if (!candidate || candidate.status !== 'queued' || !candidate.prepared)
+      return;
+    const claimed = await this.runs.manager.transaction(async (manager) => {
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+        candidate.spaceId,
+      ]);
+      const running = await manager.count(NodeRunEntity, {
+        where: { spaceId: candidate.spaceId, status: 'running' },
+      });
+      if (running >= this.config.getOrThrow<number>('SPACE_RUN_CONCURRENCY'))
+        return { affected: 0 };
+      return manager
+        .getRepository(NodeRunEntity)
+        .createQueryBuilder()
+        .update(NodeRunEntity)
+        .set({ status: 'running', startedAt: () => 'CURRENT_TIMESTAMP' })
+        .where('id = :id AND status = :status AND prepared = true', {
+          id,
+          status: 'queued',
+        })
+        .execute();
+    });
     if (!claimed.affected) return;
     const run = await this.runs.findOneByOrFail({ id });
+    if (run.status !== 'running') return;
     this.events.emit(runDto(run));
     const controller = new AbortController();
+    this.active.set(id, controller);
     let abortListener!: () => void;
     const aborted = new Promise<never>((_resolve, reject) => {
       abortListener = () => reject(controller.signal.reason);
@@ -199,11 +239,86 @@ export class RunsService {
     } finally {
       clearTimeout(timeout);
       controller.signal.removeEventListener('abort', abortListener);
+      this.active.delete(id);
     }
   }
-  private async emit(id: string) {
+  async emit(id: string) {
     const run = await this.runs.findOneBy({ id });
     if (run) this.events.emit(runDto(run));
+  }
+  async cancel(user: User, id: string) {
+    const run = await this.runs.findOneBy({ id });
+    if (!run) throw new NotFoundException('Run not found');
+    await this.spaces.get(user, run.spaceId);
+    await this.cancelIds([id]);
+    return runDto(await this.runs.findOneByOrFail({ id }));
+  }
+  async cancelIds(ids: string[]) {
+    if (!ids.length) return;
+    const rows: { id: string }[] = await this.runs.query(
+      "UPDATE node_runs SET status='canceled', finished_at=now(), error=NULL WHERE id=ANY($1::uuid[]) AND status IN ('queued','running') RETURNING id",
+      [ids],
+    );
+    for (const row of rows)
+      this.active.get(row.id)?.abort(new Error('Run canceled'));
+    for (const row of rows) {
+      await this.queue.remove(row.id).catch(() => {});
+      await this.emit(row.id);
+    }
+  }
+  async prepareBatchRun(
+    run: NodeRunEntity,
+    graph: SpaceGraph,
+    outputs: Map<string, NodeRunEntity['output']>,
+    force: boolean,
+  ) {
+    const node = graph.nodes.find((node) => node.id === run.nodeId)!;
+    const inputs = await this.inputResolver.resolve(
+      run.spaceId,
+      graph,
+      node,
+      outputs,
+    );
+    const hash = await executionHash(node.type, run.params, inputs);
+    const cached =
+      !force && !inputs.error
+        ? await this.cache.find(run.spaceId, run.nodeId, hash)
+        : null;
+    try {
+      const changed = await this.runs
+        .createQueryBuilder()
+        .update(NodeRunEntity)
+        .set({
+          inputs,
+          inputHash: hash,
+          prepared: true,
+          ...(cached
+            ? {
+                status: 'succeeded' as const,
+                output: () => 'CAST(:output AS jsonb)',
+                provider: cached.provider,
+                cacheHit: true,
+                finishedAt: new Date(),
+              }
+            : {}),
+        })
+        .setParameter('output', JSON.stringify(cached?.output ?? null))
+        .where("id=:id AND status='queued' AND prepared=false", { id: run.id })
+        .execute();
+      if (changed.affected) {
+        await this.emit(run.id);
+        if (!cached) await this.queue.enqueue(run.id).catch(() => {});
+      }
+    } catch (error) {
+      // An identical active single-node run may own the unique hash; retry preparation next tick.
+      if (!(
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === '23505'
+      ))
+        throw error;
+    }
   }
   async reconcile() {
     const timeout = this.config.getOrThrow<number>('RUN_RECOVERY_TIMEOUT_MS');
@@ -223,7 +338,7 @@ export class RunsService {
       .execute();
     for (const row of lost.raw as { id: string }[]) await this.emit(row.id);
     const queued = await this.runs.find({
-      where: { status: 'queued' },
+      where: { status: 'queued', prepared: true },
       order: { sequence: 'ASC' },
       take: 500,
     });

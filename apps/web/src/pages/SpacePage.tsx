@@ -10,6 +10,8 @@ import { ExecutionContext } from '../api/execution';
 import { useExecutionActions } from '../api/useExecutionActions';
 import { useRunEvents } from '../api/useRunEvents';
 import { copySpaceWithAssets } from '../api/copySpace';
+import { RunControls } from '../api/RunControls';
+import { useStaleNodes } from '../api/useStaleNodes';
 
 function SpaceEditor({ space }: { space: SpaceDocument }) {
   const [name, setName] = useState(space.name);
@@ -22,6 +24,7 @@ function SpaceEditor({ space }: { space: SpaceDocument }) {
       Promise.reject(new Error('Space is not ready')),
   );
   useRunEvents(space.id);
+  useStaleNodes();
   const [save, setSave] = useState<SaveState>({
     status: 'saved',
     dirty: false,
@@ -156,6 +159,13 @@ function SpaceEditor({ space }: { space: SpaceDocument }) {
           onBack={() => void back()}
           headerEnd={
             <>
+              <RunControls
+                spaceId={space.id}
+                prepare={async () => {
+                  await execution.waitForUploads();
+                  await controllerRef.current?.flush();
+                }}
+              />
               <span
                 role="status"
                 className={`save-indicator save-${save.status}`}

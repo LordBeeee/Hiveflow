@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Worker } from 'bullmq';
 import { RunsService } from '../runs/runs.service';
+import { BatchesService } from '../runs/batches.service';
 import { NodeRunQueue, redisConnection } from './node-run.queue';
 @Injectable()
 export class NodeRunProcessor
@@ -20,10 +21,12 @@ export class NodeRunProcessor
     private readonly runs: RunsService,
     private readonly queue: NodeRunQueue,
     private readonly config: ConfigService,
+    private readonly batches: BatchesService,
   ) {}
   async onApplicationBootstrap() {
     await this.queue.queue.waitUntilReady();
     await this.runs.reconcile();
+    await this.batches.reconcile();
     this.worker = new Worker(
       'node-runs',
       async (job) => {
@@ -44,11 +47,12 @@ export class NodeRunProcessor
       this.reconciling = true;
       void this.runs
         .reconcile()
+        .then(() => this.batches.reconcile())
         .catch(() => this.logger.warn('Run reconciliation deferred'))
         .finally(() => {
           this.reconciling = false;
         });
-    }, 5000);
+    }, 1000);
   }
   async onModuleDestroy() {
     clearInterval(this.timer);

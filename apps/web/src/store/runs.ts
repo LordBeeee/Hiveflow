@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { NodeRun, RunOutput } from '@hiveflow/shared';
+import type { Batch, NodeRun, RunOutput } from '@hiveflow/shared';
 
 const ranks: Record<NodeRun['status'], number> = {
   queued: 0,
@@ -16,6 +16,13 @@ export function shouldAcceptRun(
   if (!current) return true;
   if (BigInt(incoming.sequence) !== BigInt(current.sequence))
     return BigInt(incoming.sequence) > BigInt(current.sequence);
+  if (
+    current.status === 'queued' &&
+    incoming.status === 'queued' &&
+    !current.waiting &&
+    incoming.waiting
+  )
+    return false;
   return (
     incoming.runId === current.runId &&
     (incoming.status === current.status ||
@@ -26,6 +33,9 @@ interface RunState {
   spaceId: string | null;
   nodes: Record<string, NodeRun>;
   outputs: Record<string, RunOutput>;
+  successes: Record<string, NodeRun>;
+  batch: Batch | null;
+  stale: Record<string, boolean>;
   requesting: Record<string, boolean>;
   requestErrors: Record<string, string | undefined>;
   uploads: Record<
@@ -34,6 +44,9 @@ interface RunState {
   >;
   reset: (spaceId: string) => void;
   merge: (run: NodeRun) => void;
+  mergeSuccess: (run: NodeRun) => void;
+  setBatch: (batch: Batch) => void;
+  setStale: (stale: Record<string, boolean>) => void;
   setRequest: (nodeId: string, pending: boolean, error?: string) => void;
   setUpload: (nodeId: string, state: RunState['uploads'][string]) => void;
 }
@@ -41,6 +54,9 @@ export const useRunStore = create<RunState>((set) => ({
   spaceId: null,
   nodes: {},
   outputs: {},
+  successes: {},
+  batch: null,
+  stale: {},
   requesting: {},
   requestErrors: {},
   uploads: {},
@@ -49,6 +65,9 @@ export const useRunStore = create<RunState>((set) => ({
       spaceId,
       nodes: {},
       outputs: {},
+      successes: {},
+      batch: null,
+      stale: {},
       requesting: {},
       requestErrors: {},
       uploads: {},
@@ -62,6 +81,10 @@ export const useRunStore = create<RunState>((set) => ({
         return state;
       return {
         nodes: { ...state.nodes, [run.nodeId]: run },
+        ...(run.status === 'succeeded' &&
+        shouldAcceptRun(state.successes[run.nodeId], run)
+          ? { successes: { ...state.successes, [run.nodeId]: run } }
+          : {}),
         ...(!state.nodes[run.nodeId] ||
         state.nodes[run.nodeId].runId !== run.runId ||
         state.nodes[run.nodeId].status !== run.status
@@ -77,6 +100,31 @@ export const useRunStore = create<RunState>((set) => ({
           : {}),
       };
     }),
+  mergeSuccess: (run) =>
+    set((state) => {
+      if (
+        run.spaceId !== state.spaceId ||
+        run.status !== 'succeeded' ||
+        !shouldAcceptRun(state.successes[run.nodeId], run)
+      )
+        return state;
+      return { successes: { ...state.successes, [run.nodeId]: run } };
+    }),
+  setBatch: (batch) =>
+    set((state) => {
+      if (
+        batch.spaceId !== state.spaceId ||
+        (state.batch &&
+          (state.batch.createdAt > batch.createdAt ||
+            (state.batch.batchId === batch.batchId &&
+              (state.batch.completed > batch.completed ||
+                (state.batch.status !== 'running' &&
+                  state.batch.status !== batch.status)))))
+      )
+        return state;
+      return { batch };
+    }),
+  setStale: (stale) => set({ stale }),
   setRequest: (nodeId, pending, error) =>
     set((state) => ({
       requesting: { ...state.requesting, [nodeId]: pending },

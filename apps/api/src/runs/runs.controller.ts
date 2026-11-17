@@ -8,6 +8,7 @@ import {
   Post,
   Query,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { runRequestSchema } from '@hiveflow/shared';
@@ -15,14 +16,17 @@ import { CurrentUser, type User } from '../auth/current-user';
 import { SpacesService } from '../spaces/spaces.service';
 import { RunEvents } from './run-events';
 import { RunsService } from './runs.service';
+import { ThrottlerGuard } from '@nestjs/throttler';
+import { BatchesService } from './batches.service';
 @Controller('spaces/:id')
 export class RunsController {
   constructor(
     private readonly runs: RunsService,
     private readonly spaces: SpacesService,
     private readonly events: RunEvents,
+    private readonly batches: BatchesService,
   ) {}
-  @Post('nodes/:nodeId/run') start(
+  @Post('nodes/:nodeId/run') @UseGuards(ThrottlerGuard) start(
     @CurrentUser() user: User,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('nodeId', new ParseUUIDPipe()) nodeId: string,
@@ -30,14 +34,36 @@ export class RunsController {
   ) {
     if (!runRequestSchema.safeParse(body ?? {}).success)
       throw new BadRequestException('Expected { force?: boolean }');
-    return this.runs.start(user, id, nodeId);
+    return this.runs.start(
+      user,
+      id,
+      nodeId,
+      runRequestSchema.parse(body ?? {}).force,
+    );
+  }
+  @Post('run') @UseGuards(ThrottlerGuard) startAll(
+    @CurrentUser() user: User,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: unknown,
+  ) {
+    const input = runRequestSchema.safeParse(body ?? {});
+    if (!input.success)
+      throw new BadRequestException('Expected { force?: boolean }');
+    return this.batches.start(user, id, input.data.force);
+  }
+  @Get('batches') batchHistory(
+    @CurrentUser() user: User,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.batches.history(user, id);
   }
   @Get('runs') history(
     @CurrentUser() user: User,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Query('nodeId', new ParseUUIDPipe({ optional: true })) nodeId?: string,
+    @Query('succeeded') succeeded?: string,
   ) {
-    return this.runs.history(user, id, nodeId);
+    return this.runs.history(user, id, nodeId, succeeded === 'true');
   }
   @Get('events') async stream(
     @CurrentUser() user: User,
@@ -54,7 +80,9 @@ export class RunsController {
     response.flushHeaders();
     response.write('retry: 2000\n: connected\n\n');
     const unsubscribe = this.events.subscribe(id, (event) =>
-      response.write(`event: run.updated\ndata: ${JSON.stringify(event)}\n\n`),
+      response.write(
+        `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`,
+      ),
     );
     const heartbeat = setInterval(
       () => response.write(': heartbeat\n\n'),

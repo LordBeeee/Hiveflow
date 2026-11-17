@@ -51,6 +51,7 @@ export function validateEnvironment(
     ),
     MAX_UPLOAD_MB: integer('MAX_UPLOAD_MB', 20, 1, 100),
     WORKER_CONCURRENCY: integer('WORKER_CONCURRENCY', 6, 1, 32),
+    SPACE_RUN_CONCURRENCY: integer('SPACE_RUN_CONCURRENCY', 3, 1, 32),
     S3_ENDPOINT: storage('S3_ENDPOINT', 'http://localhost:9000'),
     S3_REGION: storage('S3_REGION', 'us-east-1'),
     S3_BUCKET: storage('S3_BUCKET', 'hiveflow-assets'),

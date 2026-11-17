@@ -44,4 +44,8 @@ export class NodeRunQueue implements OnModuleDestroy {
   async onModuleDestroy() {
     await this.queue.close();
   }
+  async remove(runId: string) {
+    const job = await this.queue.getJob(runId);
+    if (job && (await job.getState()) !== 'active') await job.remove();
+  }
 }

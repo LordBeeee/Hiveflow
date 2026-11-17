@@ -59,6 +59,17 @@ it('ignores late events from a different space', () => {
     .merge({ ...run('1', 'succeeded'), spaceId: crypto.randomUUID() });
   expect(Object.keys(useRunStore.getState().nodes)).toHaveLength(0);
 });
+it('does not replace prepared inputs with an older waiting snapshot', () => {
+  useRunStore
+    .getState()
+    .merge({ ...run('1', 'queued'), waiting: false, inputHash: 'prepared' });
+  useRunStore
+    .getState()
+    .merge({ ...run('1', 'queued'), waiting: true, inputHash: 'pending' });
+  expect(Object.values(useRunStore.getState().nodes)[0].inputHash).toBe(
+    'prepared',
+  );
+});
 it('preserves terminal status against conflicting late events', () => {
   useRunStore.getState().merge(run('1', 'canceled'));
   useRunStore.getState().merge(run('1', 'succeeded'));

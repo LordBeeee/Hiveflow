@@ -15,15 +15,24 @@ import { NodeRunEntity } from './node-run.entity';
 import { RunEvents } from './run-events';
 import { RunsService } from './runs.service';
 import { RunsController } from './runs.controller';
+import { BatchEntity } from './batch.entity';
+import { BatchesService } from './batches.service';
+import { ExecutionController } from './execution.controller';
+import { RunCache } from './run-cache';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { runRateLimit } from './run-rate-limit';
 @Module({
   imports: [
     SpacesModule,
     AssetsModule,
-    TypeOrmModule.forFeature([NodeRunEntity]),
+    TypeOrmModule.forFeature([NodeRunEntity, BatchEntity]),
+    ThrottlerModule.forRoot(runRateLimit),
   ],
-  controllers: [RunsController],
+  controllers: [RunsController, ExecutionController],
   providers: [
     RunsService,
+    BatchesService,
+    RunCache,
     InputResolver,
     RunEvents,
     NodeRunQueue,

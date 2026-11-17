@@ -3,6 +3,7 @@ import type { DataSourceOptions } from 'typeorm';
 import { SpaceEntity } from '../spaces/space.entity';
 import { AssetEntity } from '../assets/asset.entity';
 import { NodeRunEntity } from '../runs/node-run.entity';
+import { BatchEntity } from '../runs/batch.entity';
 
 export function databaseOptions(url: string): DataSourceOptions {
   return {
@@ -10,7 +11,7 @@ export function databaseOptions(url: string): DataSourceOptions {
     url,
     synchronize: false,
     migrationsRun: false,
-    entities: [SpaceEntity, AssetEntity, NodeRunEntity],
+    entities: [SpaceEntity, AssetEntity, NodeRunEntity, BatchEntity],
     migrations: [join(__dirname, 'migrations/*{.ts,.js}')],
   };
 }

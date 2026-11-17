@@ -1,5 +1,10 @@
 import { createContext, useContext } from 'react';
-import { assetSchema, nodeRunSchema, type NodeRun } from '@hiveflow/shared';
+import {
+  assetSchema,
+  nodeRunSchema,
+  batchSchema,
+  type NodeRun,
+} from '@hiveflow/shared';
 import { request } from './spaces';
 
 export const executionApi = {
@@ -17,17 +22,39 @@ export const executionApi = {
   },
   asset: async (id: string) =>
     assetSchema.parse(await request(`/assets/${id}/metadata`)),
-  run: async (spaceId: string, nodeId: string) => {
+  run: async (spaceId: string, nodeId: string, force = false) => {
     await request(`/spaces/${spaceId}/nodes/${nodeId}/run`, {
       method: 'POST',
-      body: '{}',
+      body: JSON.stringify({ force }),
     });
   },
-  history: async (spaceId: string): Promise<NodeRun[]> =>
-    nodeRunSchema.array().parse(await request(`/spaces/${spaceId}/runs`)),
+  history: async (spaceId: string, succeeded = false): Promise<NodeRun[]> =>
+    nodeRunSchema
+      .array()
+      .parse(
+        await request(
+          `/spaces/${spaceId}/runs${succeeded ? '?succeeded=true' : ''}`,
+        ),
+      ),
+  runAll: (spaceId: string, force = false) =>
+    request(`/spaces/${spaceId}/run`, {
+      method: 'POST',
+      body: JSON.stringify({ force }),
+    }),
+  batches: async (spaceId: string) =>
+    batchSchema.array().parse(await request(`/spaces/${spaceId}/batches`)),
+  cancel: async (id: string) =>
+    nodeRunSchema.parse(
+      await request(`/runs/${id}/cancel`, { method: 'POST' }),
+    ),
+  cancelBatch: async (id: string) =>
+    batchSchema.parse(
+      await request(`/batches/${id}/cancel`, { method: 'POST' }),
+    ),
 };
 export interface ExecutionActions {
-  runNode: (nodeId: string) => Promise<void>;
+  runNode: (nodeId: string, force?: boolean) => Promise<void>;
+  cancelNode: (nodeId: string) => Promise<void>;
   uploadFile: (nodeId: string, file: File) => Promise<void>;
   retryUpload: (nodeId: string) => Promise<void>;
   attachReference: (nodeId: string, file: File) => Promise<void>;

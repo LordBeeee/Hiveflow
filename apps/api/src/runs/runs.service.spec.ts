@@ -9,8 +9,9 @@ import { RunsService } from './runs.service';
 import type { NodeRunEntity } from './node-run.entity';
 import { RunEvents } from './run-events';
 import type { InputResolver } from '../executors/input-resolver';
+import type { RunCache } from './run-cache';
 
-function setup(claimed = true) {
+function setup(claimed = true, running = 0) {
   const row = {
     id: crypto.randomUUID(),
     spaceId: crypto.randomUUID(),
@@ -26,6 +27,8 @@ function setup(claimed = true) {
     error: null,
     provider: null,
     cacheHit: false,
+    prepared: true,
+    level: null,
     createdAt: new Date(),
     startedAt: new Date(),
     finishedAt: null,
@@ -45,29 +48,90 @@ function setup(claimed = true) {
   const repo = {
     createQueryBuilder: () => builder,
     findOneByOrFail: async () => row,
-    findOneBy: async () => row,
+    findOneBy: async () => ({ ...row, status: 'queued' }),
+    findOne: jest
+      .fn()
+      .mockImplementation(async () => ({ ...row, status: 'queued' })),
+    query: jest.fn().mockResolvedValue([]),
+    manager: {
+      transaction: async (action: (manager: unknown) => Promise<unknown>) =>
+        action({
+          query: async () => {},
+          count: async () => running,
+          getRepository: () => repo,
+        }),
+    },
   };
   const execute = jest.fn().mockResolvedValue({ output: { text: 'snapshot' } });
   const events = new RunEvents();
   const emit = jest.spyOn(events, 'emit');
+  const spaces = {
+    get: jest.fn().mockResolvedValue({
+      graph: {
+        nodes: [{ id: row.nodeId, type: 'text', params: row.params }],
+        edges: [],
+      },
+    }),
+  };
+  const queue = { enqueue: jest.fn().mockResolvedValue(undefined) };
+  const resolver = { resolve: jest.fn().mockResolvedValue({ references: [] }) };
+  const cache = { find: jest.fn().mockResolvedValue(null) };
   const service = new RunsService(
     repo as unknown as Repository<NodeRunEntity>,
-    {} as SpacesService,
-    {} as NodeRunQueue,
+    spaces as unknown as SpacesService,
+    queue as unknown as NodeRunQueue,
     events,
-    new ConfigService({ PROVIDER_TIMEOUT_MS: 5 }),
+    new ConfigService({ PROVIDER_TIMEOUT_MS: 5, SPACE_RUN_CONCURRENCY: 3 }),
     { type: 'text', execute } as unknown as TextExecutor,
     { type: 'image_upload' } as ImageUploadExecutor,
     { type: 'image_generator' } as ImageGeneratorExecutor,
-    {} as InputResolver,
+    resolver as unknown as InputResolver,
+    cache as unknown as RunCache,
   );
-  return { service, execute, changes, builder, row, emit };
+  return { service, execute, changes, builder, row, emit, repo, queue, cache };
 }
+it('returns an existing identical active run instead of executing a second provider job', async () => {
+  const { service, row, queue, execute, repo } = setup();
+  const result = await service.start({ id: 'user' }, row.spaceId, row.nodeId);
+  expect(result.runId).toBe(row.id);
+  expect(repo.findOne).toHaveBeenCalledTimes(1);
+  expect(queue.enqueue).toHaveBeenCalledWith(row.id);
+  expect(execute).not.toHaveBeenCalled();
+});
+it('publishes a cache-hit run without queueing provider execution', async () => {
+  const { service, row, queue, cache, repo, emit } = setup();
+  Object.assign(row, {
+    status: 'succeeded',
+    cacheHit: true,
+    output: { text: 'cached' },
+  });
+  cache.find.mockResolvedValue(row);
+  repo.query.mockResolvedValue([{ id: row.id }]);
+  await service.start({ id: 'user' }, row.spaceId, row.nodeId);
+  expect(queue.enqueue).not.toHaveBeenCalled();
+  expect(emit).toHaveBeenCalledWith(
+    expect.objectContaining({ cacheHit: true, output: { text: 'cached' } }),
+  );
+});
+it('bypasses succeeded cache entries for force requests', async () => {
+  const { service, row, queue, cache, repo } = setup();
+  row.status = 'queued';
+  repo.query.mockResolvedValue([{ id: row.id }]);
+  await service.start({ id: 'user' }, row.spaceId, row.nodeId, true);
+  expect(cache.find).not.toHaveBeenCalled();
+  expect(queue.enqueue).toHaveBeenCalledWith(row.id);
+});
 it('does not execute a duplicate job that cannot claim the queued row', async () => {
   const { service, execute, changes } = setup(false);
   await service.process(crypto.randomUUID());
   expect(execute).not.toHaveBeenCalled();
   expect(changes).toHaveLength(1);
+});
+it('leaves work queued when the per-Space running limit has been reached', async () => {
+  const { service, execute, changes } = setup(true, 3);
+  await service.process(crypto.randomUUID());
+  expect(execute).not.toHaveBeenCalled();
+  expect(changes).toHaveLength(0);
 });
 it('executes the immutable run params and conditionally publishes success', async () => {
   const { service, execute, changes, builder, row } = setup();

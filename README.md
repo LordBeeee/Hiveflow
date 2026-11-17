@@ -49,13 +49,16 @@ npm test               Run shared, web, and API unit tests
 npm run migration:run  Apply TypeORM migrations manually (build shared first)
 node apps/api/scripts/smoke-spaces.mjs  Test CRUD/concurrency against a running API and DB
 node apps/api/scripts/smoke-runs.mjs    Test uploads, runs, SSE and recovery with API/DB/Redis/MinIO
+node apps/api/scripts/smoke-batches.mjs Test scheduling, cache, cancellation and concurrency
+npm exec -w @hiveflow/web -- playwright install chromium  Install the E2E browser once
+npm run test:e2e -w @hiveflow/web   Run the browser execution smoke check
 docker compose up -d --build  Build and run the whole application
 docker compose stop          Stop all containers, preserving them for Docker Desktop Start
 docker compose start         Start existing containers
 docker compose down          Remove containers, preserving named volumes
 ```
 
-CI uses `npm ci`, then build, typecheck, lint, and unit tests. It prepares PostgreSQL, Redis and MinIO, applies migrations, and runs both integration scripts. Scripts use root `.env` (environment values take precedence) and `API_BASE_URL` (default `http://127.0.0.1:3000`); they create and clean up only their own fixtures. Run the execution smoke check with `MOCK_FAILURE_RATE=0` and the default provider timeout.
+CI uses `npm ci`, then build, typecheck, lint, and unit tests. It prepares PostgreSQL, Redis and MinIO, applies migrations, runs all three API integration scripts, and installs Chromium for the Playwright smoke test. Scripts use root `.env` (environment values take precedence) and `API_BASE_URL` (default `http://127.0.0.1:3000`); they create and clean up only their own fixtures. Run execution checks with `MOCK_FAILURE_RATE=0` and the default provider timeout. E2E uses `E2E_BASE_URL` (default `http://127.0.0.1:5173`), reuses a running Docker web app locally, or starts Vite against an already running API in CI. Its UI-created Space is removed afterward; object garbage collection follows the prototype's deferred cleanup policy.
 
 ## Saved Spaces
 
@@ -77,9 +80,17 @@ Graph writes validate node params, port compatibility, existing endpoints, dupli
 
 Connected Text replaces the local generator prompt; the purple badge names its source and the prompt field shows the connected value read-only. Disconnect the purple edge to restore the preserved local prompt. Text is read directly from the saved graph without running a job. An empty connected Text fails clearly, even if a local prompt exists.
 
-Connect Image Upload or Image Generator outputs to a generator's green references input. Uploads use their saved asset directly. Generator references use **all images from its latest succeeded run**, even if a newer run is queued, running or failed. Run upstream generators first, then downstream generators individually. A connected source without usable output produces a named error and Retry. Disconnecting references removes those optional inputs; disconnecting prompt uses the local prompt, or gives a clear missing-prompt error if it is empty.
+Connect Image Upload or Image Generator outputs to a generator's green references input. Uploads use their saved asset directly. Single-node runs use **all images from the source's latest succeeded run**, even if a newer run is queued, running or failed. Run upstream generators first when using individual Run controls, or choose **Run all** to schedule dependencies automatically. A connected source without usable output produces a named error and Retry. Disconnecting references removes those optional inputs; disconnecting prompt uses the local prompt, or gives a clear missing-prompt error if it is empty.
 
-Each run snapshots connected values when requested. Later graph edits or upstream runs affect the next request. The worker creates private S3 GET URLs valid for 15 minutes and passes them to the provider; signed URLs are never stored in graph/run JSON. The mock downloads and hashes references, so changing image content changes its deterministic preview. Run-all, caching, staleness and cancellation follow in Phase 5.
+Single-node runs snapshot connected values when requested. Run all snapshots the entire graph and prepares each dependency level using successful outputs from that batch. Later graph edits affect the next request. The worker creates private S3 GET URLs valid for 15 minutes and passes them to the provider; signed URLs are never stored in graph/run JSON. The mock downloads and hashes references, so changing image content changes its deterministic preview.
+
+## Running a workflow
+
+- **Run all** waits for uploads/autosave, creates a durable batch, and runs topological levels in order. Nodes in a level run concurrently within the configured limits. The next level waits for every node in the previous level to finish. Failed or canceled nodes cause their descendants to be skipped; independent branches continue. The header displays batch progress and nodes waiting for dependencies display **Waiting for inputs…**.
+- Successful results are cached by canonical node type/params and effective input text/image content hashes. Cache reuse is scoped to the same Space/node and checks asset metadata still exists. Rerunning unchanged work creates new **Cache hit** run records and reuses images without invoking the provider. Choose **Force rerun** beside Run all, or the node's Force rerun action, to bypass succeeded cache. Identical active single-node requests return the same run; only one active batch is allowed per Space.
+- **Stale · inputs changed** means the current graph differs from the latest run. Changes also propagate through downstream image nodes before new images exist. Stale computation uses the same shared hash helper as the API, preserves reference order and ignores expiring URLs. Older events cannot replace newer node results or prepared inputs. Prior phase hashes may appear stale once after upgrading; rerun to refresh them.
+- **Cancel run** stops one queued/running generator. In a batch, its dependents are skipped. **Cancel batch** cancels all unfinished nodes. Completed results remain available. Queued jobs are removed, running providers receive an abort signal, and conditional status updates discard late results. Refresh recovers batch progress and node state.
+- Run creation shares a quota of **120 requests per minute per user** across single-node and batch endpoints. Rate-limited requests return 429; cancellation remains available. The prototype's fixed development user shares this quota across tabs.
 
 ## Configuration
 
@@ -97,7 +108,7 @@ Copy `.env.example` to root `.env`; the API and Compose read it. Never commit `.
 | `MAX_UPLOAD_MB`, `PROVIDER_TIMEOUT_MS`                                    | Upload MB limit (1–100, default 20) and executor timeout (default 120000 ms)                |
 | `RUN_RECOVERY_TIMEOUT_MS`                                                 | Lost-worker cutoff; default provider timeout + 30000 ms, minimum provider timeout + 5000 ms |
 | `WORKER_CONCURRENCY`                                                      | Global queue worker parallelism (default 6)                                                 |
-| `SPACE_RUN_CONCURRENCY`                                                   | Reserved for Phase 5 per-space execution limits                                             |
+| `SPACE_RUN_CONCURRENCY`                                                   | Maximum running nodes per Space (default 3); enforced when claiming queued work             |
 
 The optional Vite development server proxies `/health` and `/api/*` to port 3000. If changing the host API port for that workflow, update `apps/web/vite.config.ts` too. Docker's Nginx proxy uses the fixed internal API port. No frontend secrets are exposed.
 
@@ -111,4 +122,4 @@ The optional Vite development server proxies `/health` and `/api/*` to port 3000
 - `docs/DECISIONS.md`: implementation assumptions.
 - `SPACES_PLAN.md`: phase acceptance criteria and remaining prototype scope.
 
-Completed through Phase 4 connected inputs. Next: Phase 5 graph execution, caching, and cancellation. See `docs/PHASE_3_CHECKS.md` and `docs/PHASE_4_CHECKS.md` for verification evidence.
+Phases 0–5 of the prototype are implemented. See `docs/PHASE_3_CHECKS.md`, `docs/PHASE_4_CHECKS.md` and `docs/PHASE_5_CHECKS.md` for verification evidence. The default provider remains a mock. Production work includes real authentication/provider integration, shared event/rate-limit infrastructure for multiple API replicas and orphan-object cleanup.

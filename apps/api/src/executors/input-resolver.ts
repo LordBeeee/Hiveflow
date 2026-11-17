@@ -7,6 +7,7 @@ import {
   imageUploadParamsSchema,
   type GraphNode,
   type SpaceGraph,
+  type RunOutput,
 } from '@hiveflow/shared';
 import { AssetsService } from '../assets/assets.service';
 import { NodeRunEntity } from '../runs/node-run.entity';
@@ -23,6 +24,7 @@ export class InputResolver {
     spaceId: string,
     graph: SpaceGraph,
     node: GraphNode,
+    batchOutputs?: Map<string, RunOutput | null>,
   ): Promise<ResolvedInputs> {
     const result: ResolvedInputs = { references: [] };
     try {
@@ -58,11 +60,16 @@ export class InputResolver {
             const id = imageUploadParamsSchema.parse(source.params).assetId;
             ids = id ? [id] : [];
           } else {
-            const latest = await this.runs.findOne({
-              where: { spaceId, nodeId: source.id, status: 'succeeded' },
-              order: { sequence: 'DESC' },
-            });
-            ids = latest?.output?.image?.map((image) => image.assetId) ?? [];
+            const latest = batchOutputs
+              ? null
+              : await this.runs.findOne({
+                  where: { spaceId, nodeId: source.id, status: 'succeeded' },
+                  order: { sequence: 'DESC' },
+                });
+            const output = batchOutputs
+              ? batchOutputs.get(source.id)
+              : latest?.output;
+            ids = output?.image?.map((image) => image.assetId) ?? [];
           }
           if (!ids.length) throw missing();
           for (const id of ids) {

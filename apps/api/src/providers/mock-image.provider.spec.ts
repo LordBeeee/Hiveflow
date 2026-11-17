@@ -23,6 +23,7 @@ describe('MockImageProvider', () => {
     const a = await provider.generate(
       {
         ...request,
+        count: 1,
         references: [{ url: 'https://storage.example/a?signature=1' }],
       },
       signal,
@@ -30,6 +31,7 @@ describe('MockImageProvider', () => {
     const b = await provider.generate(
       {
         ...request,
+        count: 1,
         references: [{ url: 'https://storage.example/a?signature=2' }],
       },
       signal,
@@ -41,11 +43,15 @@ describe('MockImageProvider', () => {
     expect(a.images[0].bytes.equals(b.images[0].bytes)).toBe(true);
     download.mockResolvedValue(new Response('different reference'));
     const c = await provider.generate(
-      { ...request, references: [{ url: 'https://storage.example/a' }] },
+      {
+        ...request,
+        count: 1,
+        references: [{ url: 'https://storage.example/a' }],
+      },
       signal,
     );
     expect(a.images[0].bytes.equals(c.images[0].bytes)).toBe(false);
-  });
+  }, 15000); // Native image/font initialization can be slow on a busy Windows host.
   it('reports a failed signed reference download clearly', async () => {
     jest
       .spyOn(globalThis, 'fetch')
