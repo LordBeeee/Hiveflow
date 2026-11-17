@@ -1,3 +1,6 @@
+import { DataSource } from 'typeorm';
+import { MockVideoProvider } from '../providers/mock-video.provider';
+import { VideoGeneratorExecutor } from '../executors/video-generator.executor';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -52,10 +55,11 @@ import { ExecutorRegistry } from '../executors/executor-registry';
     ImageGeneratorExecutor,
     AssistantExecutor,
     VoiceoverExecutor,
+    VideoGeneratorExecutor,
     {
       provide: ProviderRegistry,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
+      inject: [ConfigService, DataSource],
+      useFactory: (config: ConfigService, db: DataSource) => {
         if (config.get<string>('IMAGE_PROVIDER') !== 'mock')
           throw new Error(
             'Unknown IMAGE_PROVIDER. Implement and register an adapter in RunsModule.',
@@ -64,7 +68,11 @@ import { ExecutorRegistry } from '../executors/executor-registry';
         registry.register('image', 'mock', new MockImageProvider(config));
         registry.register('llm', 'mock', new MockLlmProvider(config));
         registry.register('tts', 'mock', new MockTtsProvider(config));
-        registry.register('video', 'mock', { id: 'mock' });
+        registry.register(
+          'video',
+          'mock-video',
+          new MockVideoProvider(config, db),
+        );
         return registry;
       },
     },

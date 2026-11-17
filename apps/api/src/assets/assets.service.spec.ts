@@ -2,13 +2,22 @@ import { BadRequestException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import sharp from 'sharp';
 import { Readable } from 'node:stream';
+import { ConfigService } from '@nestjs/config';
+import { createHash } from 'node:crypto';
 import { AssetsService } from './assets.service';
 import type { AssetEntity } from './asset.entity';
 import type { StorageService } from './storage.service';
 import type { SpacesService } from '../spaces/spaces.service';
-function setup() {
+function setup(config = new ConfigService()) {
   const storage = {
     put: jest.fn().mockResolvedValue(undefined),
+    putStream: jest.fn(
+      async (...args: [string, Readable, string, AbortSignal?]) => {
+        for await (const chunk of args[1]) {
+          void chunk;
+        }
+      },
+    ),
     remove: jest.fn().mockResolvedValue(undefined),
   };
   const assets = {
@@ -20,10 +29,53 @@ function setup() {
     assets as unknown as Repository<AssetEntity>,
     storage as unknown as StorageService,
     spaces as unknown as SpacesService,
+    config,
   );
   return { service, storage, assets, spaces };
 }
 describe('AssetsService', () => {
+  it('hashes fragmented video streams and rejects size/spoof failures without metadata', async () => {
+    const { service, storage, assets } = setup(
+      new ConfigService({ MAX_VIDEO_MB: 1 }),
+    );
+    const bytes = Buffer.alloc(32);
+    bytes.writeUInt32BE(16, 0);
+    bytes.write('ftyp', 4);
+    const result = await service.store(crypto.randomUUID(), {
+      kind: 'video',
+      mime: 'video/mp4',
+      stream: Readable.from([
+        bytes.subarray(0, 3),
+        bytes.subarray(3, 9),
+        bytes.subarray(9),
+      ]),
+      meta: { width: 320, height: 180 },
+    });
+    expect(result.sha256).toBe(
+      createHash('sha256').update(bytes).digest('hex'),
+    );
+    expect(result.sizeBytes).toBe(32);
+    const calls = assets.save.mock.calls.length;
+    await expect(
+      service.store(crypto.randomUUID(), {
+        kind: 'video',
+        mime: 'video/mp4',
+        stream: Readable.from([Buffer.alloc(20)]),
+        meta: { width: 320, height: 180 },
+      }),
+    ).rejects.toThrow('MIME');
+    await expect(
+      service.store(crypto.randomUUID(), {
+        kind: 'video',
+        mime: 'video/mp4',
+        stream: Readable.from([bytes, Buffer.alloc(1024 * 1024)]),
+        meta: { width: 320, height: 180 },
+      }),
+    ).rejects.toThrow('size limit');
+    expect(assets.save).toHaveBeenCalledTimes(calls);
+    expect(storage.remove).toHaveBeenCalledTimes(2);
+    expect(storage.put).not.toHaveBeenCalled();
+  });
   it('persists streamed audio and video with matching metadata and extensions', async () => {
     const { service, storage } = setup();
     const spaceId = crypto.randomUUID();
@@ -64,15 +116,17 @@ describe('AssetsService', () => {
       durationMs: 2000,
       sizeBytes: 16,
     });
-    expect(storage.put).toHaveBeenLastCalledWith(
+    expect(storage.putStream).toHaveBeenLastCalledWith(
       expect.stringMatching(/\.mp4$/),
-      mp4,
+      expect.any(Readable),
       'video/mp4',
+      undefined,
     );
     await expect(
       service.store(spaceId, { kind: 'video', bytes: mp4, mime: 'video/mp4' }),
     ).rejects.toThrow('width and height');
-    expect(storage.put).toHaveBeenCalledTimes(2);
+    expect(storage.put).toHaveBeenCalledTimes(1);
+    expect(storage.putStream).toHaveBeenCalledTimes(1);
   });
   it('checks ownership before writing storage and persists only metadata', async () => {
     const { service, assets, storage } = setup();

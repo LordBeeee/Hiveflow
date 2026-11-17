@@ -21,6 +21,7 @@ export function redisConnection(url: string) {
 @Injectable()
 export class NodeRunQueue implements OnModuleDestroy {
   readonly queue: Queue<{ runId: string }>;
+  readonly videoQueue: Queue<{ runId: string }>;
   constructor(config: ConfigService) {
     this.queue = new Queue('node-runs', {
       connection: {
@@ -29,23 +30,35 @@ export class NodeRunQueue implements OnModuleDestroy {
         enableOfflineQueue: false,
       },
     });
+    this.videoQueue = new Queue('video-runs', {
+      connection: {
+        ...redisConnection(config.getOrThrow<string>('REDIS_URL')),
+        maxRetriesPerRequest: 1,
+        enableOfflineQueue: false,
+      },
+    });
+    this.videoQueue.on('error', () => {});
     this.queue.on('error', () => {}); // Reconciliation retries enqueueing after transient Redis failures.
   }
-  async enqueue(runId: string) {
-    const existing = await this.queue.getJob(runId);
+  async enqueue(runId: string, kind?: string | null, recovery = false) {
+    const queue = kind === 'video' ? this.videoQueue : this.queue;
+    const jobId = recovery ? `${runId}-resume-${Date.now()}` : runId;
+    const existing = await queue.getJob(jobId);
     if (existing && ['completed', 'failed'].includes(await existing.getState()))
       await existing.remove();
-    await this.queue.add(
+    await queue.add(
       'execute',
       { runId },
-      { jobId: runId, removeOnComplete: 1000, removeOnFail: 1000 },
+      { jobId, removeOnComplete: 1000, removeOnFail: 1000 },
     );
   }
   async onModuleDestroy() {
-    await this.queue.close();
+    await Promise.all([this.queue.close(), this.videoQueue.close()]);
   }
   async remove(runId: string) {
-    const job = await this.queue.getJob(runId);
-    if (job && (await job.getState()) !== 'active') await job.remove();
+    for (const queue of [this.queue, this.videoQueue]) {
+      const job = await queue.getJob(runId);
+      if (job && (await job.getState()) !== 'active') await job.remove();
+    }
   }
 }

@@ -13,7 +13,7 @@ it('derives every catalog entry from shared metadata without placeholders', () =
       keywords: nodeRegistry[node.type].keywords,
     });
   expect([...new Set(nodeCatalog.map((node) => node.category))].sort()).toEqual(
-    ['Audio', 'Image', 'Text'],
+    ['Audio', 'Image', 'Text', 'Video'],
   );
 });
 it('ranks label prefix before substring, keywords and category with stable ties', () => {

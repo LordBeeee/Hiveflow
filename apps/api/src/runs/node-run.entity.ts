@@ -15,6 +15,8 @@ export class NodeRunEntity {
   @Column({ name: 'node_type', type: 'text' }) nodeType!: NodeType;
   @Column({ type: 'bigint', generated: 'increment', unique: true })
   sequence!: string;
+  @Column({ name: 'provider_task_id', type: 'text', nullable: true })
+  providerTaskId!: string | null;
   @Column({ name: 'batch_id', type: 'uuid', nullable: true }) batchId!:
     string | null;
   @Column({ type: 'text' }) status!: NodeRun['status'];

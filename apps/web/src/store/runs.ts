@@ -80,7 +80,17 @@ export const useRunStore = create<RunState>((set) => ({
       )
         return state;
       return {
-        nodes: { ...state.nodes, [run.nodeId]: run },
+        nodes: {
+          ...state.nodes,
+          [run.nodeId]: {
+            ...run,
+            ...(run.progress === undefined &&
+            run.status === 'running' &&
+            state.nodes[run.nodeId]?.runId === run.runId
+              ? { progress: state.nodes[run.nodeId]?.progress }
+              : {}),
+          },
+        },
         ...(run.status === 'succeeded' &&
         shouldAcceptRun(state.successes[run.nodeId], run)
           ? { successes: { ...state.successes, [run.nodeId]: run } }

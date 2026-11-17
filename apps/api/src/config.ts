@@ -18,6 +18,18 @@ export function validateEnvironment(
     return value;
   };
   const timeout = integer('PROVIDER_TIMEOUT_MS', 120000, 1000, 900000);
+  const kindTimeouts = Object.fromEntries(
+    ['IMAGE', 'LLM', 'TTS', 'VIDEO'].map((kind) => [
+      `${kind}_TIMEOUT_MS`,
+      integer(
+        `${kind}_TIMEOUT_MS`,
+        kind === 'VIDEO' ? 900000 : timeout,
+        1000,
+        3600000,
+      ),
+    ]),
+  );
+  const largestTimeout = Math.max(...Object.values(kindTimeouts));
   const failureRate = Number(env.MOCK_FAILURE_RATE ?? 0);
   if (!Number.isFinite(failureRate) || failureRate < 0 || failureRate > 1)
     throw new Error('MOCK_FAILURE_RATE must be between 0 and 1');
@@ -48,11 +60,13 @@ export function validateEnvironment(
     IMAGE_PROVIDER: env.IMAGE_PROVIDER ?? 'mock',
     MOCK_FAILURE_RATE: failureRate,
     PROVIDER_TIMEOUT_MS: timeout,
+    ...kindTimeouts,
+    VIDEO_WORKER_CONCURRENCY: integer('VIDEO_WORKER_CONCURRENCY', 2, 1, 32),
     RUN_RECOVERY_TIMEOUT_MS: integer(
       'RUN_RECOVERY_TIMEOUT_MS',
-      timeout + 30000,
-      timeout + 5000,
-      1800000,
+      largestTimeout + 30000,
+      largestTimeout + 5000,
+      7200000,
     ),
     MAX_UPLOAD_MB: integer('MAX_UPLOAD_MB', 20, 1, 100),
     WORKER_CONCURRENCY: integer('WORKER_CONCURRENCY', 6, 1, 32),

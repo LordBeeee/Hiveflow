@@ -27,6 +27,7 @@ function setup(claimed = true, running = 0) {
     provider: null,
     model: null,
     providerKind: null,
+    providerTaskId: null,
     cacheHit: false,
     prepared: true,
     level: null,
@@ -82,7 +83,11 @@ function setup(claimed = true, running = 0) {
     spaces as unknown as SpacesService,
     queue as unknown as NodeRunQueue,
     events,
-    new ConfigService({ PROVIDER_TIMEOUT_MS: 5, SPACE_RUN_CONCURRENCY: 3 }),
+    new ConfigService({
+      PROVIDER_TIMEOUT_MS: 5,
+      SPACE_RUN_CONCURRENCY: 3,
+      RUN_RECOVERY_TIMEOUT_MS: 930000,
+    }),
     { get: () => ({ type: 'text', execute }) } as unknown as ExecutorRegistry,
     resolver as unknown as InputResolver,
     cache as unknown as RunCache,
@@ -101,8 +106,43 @@ it('returns an existing identical active run instead of executing a second provi
   const result = await service.start({ id: 'user' }, row.spaceId, row.nodeId);
   expect(result.runId).toBe(row.id);
   expect(repo.findOne).toHaveBeenCalledTimes(1);
-  expect(queue.enqueue).toHaveBeenCalledWith(row.id);
+  expect(queue.enqueue).toHaveBeenCalledWith(row.id, row.providerKind);
   expect(execute).not.toHaveBeenCalled();
+});
+it('checkpoints accepted task IDs and emits progress only when it changes', async () => {
+  const { service, execute, repo, row, emit } = setup();
+  row.nodeType = 'video_generator';
+  row.providerKind = 'video';
+  repo.query.mockResolvedValue([{ status: 'running' }]);
+  execute.mockImplementationOnce(async (context) => {
+    await context.checkpointTask('accepted');
+    context.reportProgress(25);
+    context.reportProgress(25);
+    context.reportProgress(40);
+    return { output: { video: [] } };
+  });
+  await service.process(row.id);
+  expect(repo.query).toHaveBeenCalledTimes(1);
+  expect(repo.query.mock.calls[0][0]).toContain('provider_task_id');
+  expect(
+    emit.mock.calls
+      .filter(([run]) => run.progress !== undefined)
+      .map(([run]) => run.progress),
+  ).toEqual([25, 40]);
+});
+it('requeues video on startup for polling recovery and excludes accepted tasks from worker_lost', async () => {
+  const { service, repo, builder, queue, row } = setup();
+  Object.assign(repo, { find: jest.fn().mockResolvedValue([]) });
+  Object.assign(builder, { returning: jest.fn().mockReturnThis() });
+  builder.execute.mockResolvedValue({ affected: 0, ...{ raw: [] } });
+  repo.query.mockResolvedValue([{ id: row.id, provider_kind: 'video' }]);
+  await service.reconcile(true);
+  expect(queue.enqueue).toHaveBeenCalledWith(row.id, 'video', true);
+  expect(
+    builder.where.mock.calls.some(([sql]) =>
+      String(sql).includes('provider_task_id IS NULL'),
+    ),
+  ).toBe(true);
 });
 it('publishes a cache-hit run without queueing provider execution', async () => {
   const { service, row, queue, cache, repo, emit } = setup();
@@ -125,7 +165,7 @@ it('bypasses succeeded cache entries for force requests', async () => {
   repo.query.mockResolvedValue([{ id: row.id }]);
   await service.start({ id: 'user' }, row.spaceId, row.nodeId, true);
   expect(cache.find).not.toHaveBeenCalled();
-  expect(queue.enqueue).toHaveBeenCalledWith(row.id);
+  expect(queue.enqueue).toHaveBeenCalledWith(row.id, row.providerKind);
 });
 it('does not execute a duplicate job that cannot claim the queued row', async () => {
   const { service, execute, changes } = setup(false);

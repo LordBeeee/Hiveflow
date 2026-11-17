@@ -91,7 +91,48 @@ export const voiceoverParamsSchema = z
       .default({}),
   })
   .strict();
+export const videoGeneratorParamsSchema = z
+  .object({
+    prompt: z.string(),
+    model: z.string().min(1),
+    duration: z.number().int().min(1).max(30),
+    aspectRatio: z.enum(['16:9', '9:16', '1:1']),
+    resolution: z.enum(['720p', '1080p']),
+    generateAudio: z.boolean(),
+    options: z
+      .record(
+        z.string(),
+        z.union([z.string(), z.number().finite(), z.boolean()]),
+      )
+      .default({}),
+  })
+  .strict();
 export const nodeRegistry = {
+  video_generator: {
+    type: 'video_generator',
+    label: 'Video Generator',
+    category: 'Video',
+    description: 'Animate an idea with image references',
+    keywords: ['video', 'motion', 'animate', 'clip', 'phim'],
+    modelKind: 'video',
+    isNew: true,
+    inputs: [
+      { id: 'prompt', type: 'text' },
+      { id: 'start_image', type: 'image' },
+      { id: 'end_image', type: 'image' },
+    ],
+    outputs: [{ id: 'video', type: 'video' }],
+    paramsSchema: videoGeneratorParamsSchema,
+    defaultParams: {
+      prompt: '',
+      model: 'auto',
+      duration: 5,
+      aspectRatio: '16:9',
+      resolution: '720p',
+      generateAudio: false,
+      options: {},
+    },
+  },
   voiceover: {
     type: 'voiceover',
     label: 'Voiceover',

@@ -20,12 +20,16 @@ export function NodeFrame({
   selected,
   children,
   icon,
+  portWarnings = {},
+  runDisabledReason,
 }: {
   node: GraphNode;
   number: number;
   selected: boolean;
   children: React.ReactNode;
   icon: IconName;
+  portWarnings?: Record<string, string>;
+  runDisabledReason?: string;
 }) {
   const definition: NodeDef<Record<string, unknown>> = nodeRegistry[node.type];
   const { runNode } = useExecution();
@@ -44,7 +48,11 @@ export function NodeFrame({
         className="node-floating-toolbar nodrag nopan"
       >
         {!!definition.modelKind && (
-          <button disabled={busy} onClick={() => void runNode(node.id)}>
+          <button
+            disabled={busy || !!runDisabledReason}
+            title={runDisabledReason}
+            onClick={() => void runNode(node.id)}
+          >
             <Icon name="play" size={14} />
             Run
           </button>
@@ -72,10 +80,26 @@ export function NodeFrame({
           position={Position.Left}
           id={port.id}
           className={`port port-${port.type}`}
-          style={{ top: index === 0 ? '48%' : '66%' }}
+          style={{
+            top:
+              definition.inputs.length > 2
+                ? `${36 + index * 20}%`
+                : index === 0
+                  ? '48%'
+                  : '66%',
+          }}
           aria-label={`${definition.label} #${number} ${port.id} input`}
-          title={`${port.id} · ${port.type}${port.multiple ? ' · multiple' : ''}`}
-        />
+          title={
+            portWarnings[port.id] ??
+            `${port.id} · ${port.type}${port.multiple ? ' · multiple' : ''}`
+          }
+        >
+          {portWarnings[port.id] && (
+            <span className="port-warning" aria-label={portWarnings[port.id]}>
+              !
+            </span>
+          )}
+        </Handle>
       ))}
       {definition.outputs.map((port) => (
         <Handle

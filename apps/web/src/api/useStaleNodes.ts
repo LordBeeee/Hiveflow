@@ -25,7 +25,7 @@ export async function computeStaleNodes(
   assetHash: (id: string) => Promise<string>,
   models: readonly AvailableModel[] = modelCatalog.map((model) => ({
     ...model,
-    available: model.provider === 'mock' && model.status !== 'removed',
+    available: model.provider.startsWith('mock') && model.status !== 'removed',
     isDefault: model.id === `mock-${model.kind}`,
   })),
   registry: NodeDefinitions = nodeRegistry,

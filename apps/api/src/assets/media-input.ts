@@ -1,6 +1,7 @@
 import { Readable } from 'node:stream';
 import type { MediaKind } from '@hiveflow/shared';
 export interface StoreInput {
+  signal?: AbortSignal;
   kind: MediaKind;
   bytes?: Buffer;
   stream?: Readable;

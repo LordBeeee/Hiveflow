@@ -6,7 +6,9 @@ import { nodeRegistry, executionHash } from '@hiveflow/shared';
 it('lists configured mocks and unavailable adapters, and resolves a changed default before hashing', async () => {
   const registry = new ProviderRegistry();
   for (const kind of ['image', 'llm', 'tts', 'video'] as const)
-    registry.register(kind, 'mock', { id: 'mock' });
+    registry.register(kind, kind === 'video' ? 'mock-video' : 'mock', {
+      id: 'mock',
+    });
   const config = new ConfigService({ DEFAULT_IMAGE_MODEL: 'mock-image' });
   const service = new ModelsService(config, registry);
   expect(

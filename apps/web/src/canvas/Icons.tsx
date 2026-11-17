@@ -1,4 +1,5 @@
 export type IconName =
+  | 'video'
   | 'audio'
   | 'plus'
   | 'cursor'
@@ -16,6 +17,12 @@ export type IconName =
   | 'close'
   | 'search';
 const paths: Record<IconName, React.ReactNode> = {
+  video: (
+    <>
+      <rect x="3" y="5" width="13" height="14" rx="3" />
+      <path d="m16 10 5-3v10l-5-3Z" />
+    </>
+  ),
   audio: (
     <>
       <path d="M4 9v6m4-10v14m4-16v18m4-15v12m4-9v6" />

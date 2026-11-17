@@ -34,6 +34,20 @@ function run(sequence: string, status: NodeRun['status']): NodeRun {
   };
 }
 beforeEach(() => useRunStore.getState().reset(spaceId));
+it('retains volatile progress when a running history snapshot has no progress', () => {
+  const video = {
+    ...run('1', 'running'),
+    nodeType: 'video_generator' as const,
+    progress: 46,
+  };
+  useRunStore.getState().merge(video);
+  useRunStore.getState().merge({ ...video, progress: undefined });
+  expect(useRunStore.getState().nodes[video.nodeId].progress).toBe(46);
+  useRunStore
+    .getState()
+    .merge({ ...run('2', 'running'), nodeType: 'video_generator' });
+  expect(useRunStore.getState().nodes[video.nodeId].progress).toBeUndefined();
+});
 it('recovers previous successful text after refresh of a canceled run without accepting older replacements', () => {
   const canceled = { ...run('3', 'canceled'), nodeType: 'assistant' as const };
   const success = {

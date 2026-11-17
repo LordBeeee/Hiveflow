@@ -50,6 +50,7 @@ export function runDto(run: NodeRunEntity): NodeRun {
 @Injectable()
 export class RunsService {
   private readonly logger = new Logger(RunsService.name);
+  private readonly progress = new Map<string, number>();
   private readonly active = new Map<string, AbortController>();
   constructor(
     @InjectRepository(NodeRunEntity)
@@ -143,7 +144,7 @@ export class RunsService {
     // PostgreSQL is the source of truth. Reconciliation repairs this enqueue gap on Redis failure.
     if (run.status === 'queued')
       await this.queue
-        .enqueue(run.id)
+        .enqueue(run.id, run.providerKind)
         .catch(() =>
           this.logger.warn('Enqueue deferred; reconciliation will retry'),
         );
@@ -170,7 +171,12 @@ export class RunsService {
         .distinctOn(['run.node_id'])
         .orderBy('run.node_id')
         .addOrderBy('run.sequence', 'DESC');
-    return (await query.getMany()).map(runDto);
+    return (await query.getMany()).map((run) => ({
+      ...runDto(run),
+      ...(this.progress.has(run.id)
+        ? { progress: this.progress.get(run.id) }
+        : {}),
+    }));
   }
   async process(id: string) {
     const candidate = await this.runs.findOneBy({ id });
@@ -214,7 +220,10 @@ export class RunsService {
         .getRepository(NodeRunEntity)
         .createQueryBuilder()
         .update(NodeRunEntity)
-        .set({ status: 'running', startedAt: () => 'CURRENT_TIMESTAMP' })
+        .set({
+          status: 'running',
+          startedAt: () => 'COALESCE(started_at, CURRENT_TIMESTAMP)',
+        })
         .where('id = :id AND status = :status AND prepared = true', {
           id,
           status: 'queued',
@@ -243,7 +252,15 @@ export class RunsService {
             'provider_timeout: generation took too long. Please retry.',
           ),
         ),
-      this.config.getOrThrow<number>('PROVIDER_TIMEOUT_MS'),
+      Math.max(
+        1,
+        (this.config.get<number>(
+          `${run.providerKind?.toUpperCase()}_TIMEOUT_MS`,
+        ) ?? this.config.getOrThrow<number>('PROVIDER_TIMEOUT_MS')) -
+          (run.providerKind === 'video' && run.startedAt
+            ? Date.now() - run.startedAt.getTime()
+            : 0),
+      ),
     );
     try {
       if (run.inputs?.error) throw new Error(run.inputs.error);
@@ -251,6 +268,26 @@ export class RunsService {
       if (!executor) throw new Error('Unsupported node type');
       const result = await Promise.race([
         executor.execute({
+          runId: run.id,
+          providerTaskId: run.providerTaskId,
+          checkpointTask: async (taskId) => {
+            const rows: { status: string }[] = await this.runs.query(
+              'WITH changed AS (UPDATE node_runs SET provider_task_id=$2 WHERE id=$1 AND (provider_task_id IS NULL OR provider_task_id=$2) RETURNING status) SELECT status FROM changed',
+              [id, taskId],
+            );
+            if (!rows.length || rows[0].status !== 'running') {
+              controller.abort(new Error('Run canceled'));
+              throw controller.signal.reason;
+            }
+          },
+          reportProgress: (value) => {
+            if (!Number.isFinite(value) || controller.signal.aborted) return;
+            const progress = Math.max(0, Math.min(100, Math.floor(value)));
+            if (this.progress.get(id) !== progress) {
+              this.progress.set(id, progress);
+              this.events.emit({ ...runDto(run), progress });
+            }
+          },
           spaceId: run.spaceId,
           params: run.params,
           inputs: run.inputs ?? undefined,
@@ -292,6 +329,7 @@ export class RunsService {
       clearTimeout(timeout);
       controller.signal.removeEventListener('abort', abortListener);
       this.active.delete(id);
+      this.progress.delete(id);
     }
   }
   async emit(id: string) {
@@ -308,12 +346,18 @@ export class RunsService {
   async cancelIds(ids: string[]) {
     if (!ids.length) return;
     const rows: { id: string }[] = await this.runs.query(
-      "UPDATE node_runs SET status='canceled', finished_at=now(), error=NULL WHERE id=ANY($1::uuid[]) AND status IN ('queued','running') RETURNING id",
+      "WITH changed AS (UPDATE node_runs SET status='canceled', finished_at=now(), error=NULL WHERE id=ANY($1::uuid[]) AND status IN ('queued','running') RETURNING id) SELECT id FROM changed",
       [ids],
     );
     for (const row of rows)
       this.active.get(row.id)?.abort(new Error('Run canceled'));
     for (const row of rows) {
+      const run = await this.runs.findOneBy({ id: row.id });
+      if (run?.providerTaskId)
+        await this.executors
+          .get(run.nodeType)
+          ?.cancelTask?.(run.providerTaskId, run.params)
+          .catch(() => this.logger.warn('Remote cancellation deferred'));
       await this.queue.remove(row.id).catch(() => {});
       await this.emit(row.id);
     }
@@ -369,7 +413,14 @@ export class RunsService {
         .execute();
       if (changed.affected) {
         await this.emit(run.id);
-        if (!cached) await this.queue.enqueue(run.id).catch(() => {});
+        if (!cached)
+          await this.queue
+            .enqueue(
+              run.id,
+              (nodeRegistry[node.type] as import('@hiveflow/shared').NodeDef)
+                .modelKind,
+            )
+            .catch(() => {});
       }
     } catch (error) {
       // An identical active single-node run may own the unique hash; retry preparation next tick.
@@ -382,7 +433,17 @@ export class RunsService {
         throw error;
     }
   }
-  async reconcile() {
+  async reconcile(startup = false) {
+    if (startup) {
+      const recovered: { id: string; provider_kind: string }[] =
+        await this.runs.query(
+          "WITH changed AS (UPDATE node_runs SET status='queued' WHERE status='running' AND provider_kind='video' RETURNING id,provider_kind) SELECT id,provider_kind FROM changed",
+        );
+      for (const run of recovered)
+        await this.queue
+          .enqueue(run.id, run.provider_kind, true)
+          .catch(() => {});
+    }
     const timeout = this.config.getOrThrow<number>('RUN_RECOVERY_TIMEOUT_MS');
     const lost = await this.runs
       .createQueryBuilder()
@@ -393,9 +454,12 @@ export class RunsService {
           'worker_lost: the worker stopped before completing this run. Please retry.',
         finishedAt: () => 'CURRENT_TIMESTAMP',
       })
-      .where("status = 'running' AND started_at < :before", {
-        before: new Date(Date.now() - timeout),
-      })
+      .where(
+        "status = 'running' AND provider_task_id IS NULL AND started_at < :before",
+        {
+          before: new Date(Date.now() - timeout),
+        },
+      )
       .returning('id')
       .execute();
     for (const row of lost.raw as { id: string }[]) await this.emit(row.id);
@@ -437,7 +501,7 @@ export class RunsService {
           ],
         );
       }
-      await this.queue.enqueue(run.id).catch(() => {});
+      await this.queue.enqueue(run.id, run.providerKind).catch(() => {});
     }
   }
 }

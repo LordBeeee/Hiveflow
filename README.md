@@ -53,6 +53,7 @@ node apps/api/scripts/smoke-batches.mjs Test scheduling, cache, cancellation and
 node apps/api/scripts/smoke-models.mjs  Test model availability, validation and run provenance
 node apps/api/scripts/smoke-assistant.mjs Test Assistant dataflow, vision, cache and cancellation
 node apps/api/scripts/smoke-voiceover.mjs Test Voiceover workflow, WAV delivery, cache and cancellation
+node apps/api/scripts/smoke-video.mjs Test video tasks, streaming, Range, progress and queue isolation (build API first)
 npm exec -w @hiveflow/web -- playwright install chromium  Install the E2E browser once
 npm run test:e2e -w @hiveflow/web   Run the browser execution smoke check
 docker compose up -d --build  Build and run the whole application
@@ -61,7 +62,7 @@ docker compose start         Start existing containers
 docker compose down          Remove containers, preserving named volumes
 ```
 
-CI uses `npm ci`, then build, typecheck, lint, and unit tests. It prepares PostgreSQL, Redis and MinIO, applies migrations, runs all six API integration scripts, and installs Chromium for the Playwright smoke test. Scripts use root `.env` (environment values take precedence) and `API_BASE_URL` (default `http://127.0.0.1:3000`); they create and clean up only their own fixtures. Run execution checks with `MOCK_FAILURE_RATE=0` and the default provider timeout. E2E uses `E2E_BASE_URL` (default `http://127.0.0.1:5173`), reuses a running Docker web app locally, or starts Vite against an already running API in CI. Its UI-created Space is removed afterward; object garbage collection follows the prototype's deferred cleanup policy.
+CI uses `npm ci`, then build, typecheck, lint, and unit tests. It prepares PostgreSQL, Redis and MinIO, applies migrations, runs all seven API integration scripts, and installs Chromium for the Playwright smoke test. Scripts use root `.env` (environment values take precedence) and `API_BASE_URL` (default `http://127.0.0.1:3000`); they create and clean up only their own fixtures. Run execution checks with `MOCK_FAILURE_RATE=0` and the default provider timeout. E2E uses `E2E_BASE_URL` (default `http://127.0.0.1:5173`), reuses a running Docker web app locally, or starts Vite against an already running API in CI. Its UI-created Space is removed afterward; object garbage collection follows the prototype's deferred cleanup policy.
 
 ## Saved Spaces
 
@@ -111,7 +112,7 @@ Copy `.env.example` to root `.env`; the API and Compose read it. Never commit `.
 | `IMAGE_PROVIDER`, `MOCK_FAILURE_RATE`                                     | `mock` provider; injected failure probability 0–1                                           |
 | `MAX_UPLOAD_MB`, `PROVIDER_TIMEOUT_MS`                                    | Upload MB limit (1–100, default 20) and executor timeout (default 120000 ms)                |
 | `RUN_RECOVERY_TIMEOUT_MS`                                                 | Lost-worker cutoff; default provider timeout + 30000 ms, minimum provider timeout + 5000 ms |
-| `WORKER_CONCURRENCY`                                                      | Global queue worker parallelism (default 6)                                                 |
+| `WORKER_CONCURRENCY`                                                      | Fast queue worker parallelism (default 6; video has its own queue)                          |
 | `SPACE_RUN_CONCURRENCY`                                                   | Maximum running nodes per Space (default 3); enforced when claiming queued work             |
 
 The optional Vite development server proxies `/health` and `/api/*` to port 3000. If changing the host API port for that workflow, update `apps/web/vite.config.ts` too. Docker's Nginx proxy uses the fixed internal API port. No frontend secrets are exposed.
@@ -127,7 +128,7 @@ The optional Vite development server proxies `/health` and `/api/*` to port 3000
 - `SPACES_PLAN.md`: phase acceptance criteria and remaining prototype scope.
 - `NODES_PLAN.md`: continuation for node picker, platform generalization and additional media nodes.
 
-Phases 0–9 are implemented. Next are Video Generator and cost guards/real providers in Phases 10–11. See `docs/PHASE_3_CHECKS.md` through `docs/PHASE_9_CHECKS.md` for verification evidence. The default provider remains a mock. Production work includes real authentication, shared event/rate-limit infrastructure for multiple API replicas and orphan-object cleanup.
+Phases 0–10 are implemented. Next is Phase 11: cost guards before real providers. See `docs/PHASE_3_CHECKS.md` through `docs/PHASE_10_CHECKS.md` for verification evidence. The default provider remains a mock. Production work includes real authentication, shared event/rate-limit infrastructure for multiple API replicas and orphan-object cleanup.
 
 ## Models and platform (Phase 7)
 
@@ -148,7 +149,7 @@ Additional configuration:
 
 Provider/kind limits add to existing Space/global limits. Capacity-blocked jobs remain queued. Retries honor Retry-After, cancellation and accepted-task guards. There are no external provider calls or new dependencies in this phase.
 
-The platform understands text/image/audio/video ports and output metadata. Audio/video storage accepts bounded bytes or streams with MIME signature checks; user uploads remain image-only. Stream buffering is size-bounded here; multipart streaming, playback/Range and video scheduling arrive in Phase 10. The mock video catalog registration reserves its contract until Phase 10. Mock LLM and TTS are executable through Assistant and Voiceover.
+The platform understands text/image/audio/video ports and output metadata. Audio/video storage accepts bounded bytes or streams with MIME signature checks; user uploads remain image-only. Audio buffering is size-bounded; provider video is streamed through multipart S3 upload, with playback/Range and a separate video worker queue. Mock image, LLM, TTS and task-based video providers are executable through their generating nodes.
 
 ## Assistant (Phase 8)
 
@@ -168,4 +169,30 @@ Connect Text or Assistant's purple text output to **script**. The connected valu
 
 The completed audio appears in a native player with duration and Download audio. Cache, Force rerun, stale propagation, cancel and refresh recovery work as for other generating nodes. Audio metadata is stored in PostgreSQL; WAV bytes live in MinIO. Downloads carry `audio/wav` and a `.wav` filename.
 
-**The mock creates soft tone patterns, not spoken narration.** It writes valid 16 kHz, mono, 16-bit PCM WAV directly in Node, without another package or external TTS account. Duration approximates word count ÷ 2.5 ÷ speed, with a minimum of 0.2 seconds and a maximum of five minutes. Tone patterns depend on script/voice/language/model so input changes are audible. Words are counted by whitespace; language selection is metadata for this mock, not pronunciation. Voice Studio is an unavailable custom-adapter example. Real speech providers remain Phase 11 behind cost guards; HTTP Range and multipart streaming remain Phase 10. No new environment variable, migration or dependency was added.
+**The mock creates soft tone patterns, not spoken narration.** It writes valid 16 kHz, mono, 16-bit PCM WAV directly in Node, without another package or external TTS account. Duration approximates word count ÷ 2.5 ÷ speed, with a minimum of 0.2 seconds and a maximum of five minutes. Tone patterns depend on script/voice/language/model so input changes are audible. Words are counted by whitespace; language selection is metadata for this mock, not pronunciation. Voice Studio is an unavailable custom-adapter example. Real speech providers remain Phase 11 behind cost guards; Video streaming and HTTP Range are implemented in Phase 10. No new environment variable, migration or dependency was added.
+
+## Video Generator (Phase 10)
+
+Choose Video → Video Generator in the picker. Enter a prompt or connect Text/Assistant output; the connected prompt overrides the preserved local prompt. Optional start/end image inputs accept Image Upload or Image Generator output. Duration, ratio, resolution and audio controls follow the selected model. Unsupported options remain visible but disabled. Changing models coerces dependent settings in one Undo step. A connected end image on an unsupported model displays a warning at the port and blocks Run until you disconnect it or choose another model.
+
+Run all supports Text → Assistant → Image Generator / Voiceover / Video Generator. Video shows progress and elapsed time, supports Cancel, and plays/seeks in a native video player. Repeating unchanged work uses cache. Editing upstream text marks all affected outputs stale. Progress is volatile and emitted through existing SSE/history snapshots without a database write per poll.
+
+**The mock returns a fixed 2-second, 320×180 silent MP4 test pattern**, irrespective of requested generation settings; it does not synthesize video. A task takes roughly 18–24 seconds plus polling/storage. Image references are actually downloaded and fingerprinted when submitted. The fixture is committed at `apps/api/assets/mock-video.mp4`; regenerate it with `node scripts/make-mock-video.mjs` (development-only ffmpeg-static). Docker/CI skip the generator binary download and runtime needs no ffmpeg.
+
+Video uses its own BullMQ queue. Configuration additions:
+
+| Variable                                               | Default / purpose                                                                          |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| `IMAGE_TIMEOUT_MS`, `LLM_TIMEOUT_MS`, `TTS_TIMEOUT_MS` | 120000 ms, falling back to legacy `PROVIDER_TIMEOUT_MS` when unset                         |
+| `VIDEO_TIMEOUT_MS`                                     | 900000 ms (15 minutes)                                                                     |
+| `RUN_RECOVERY_TIMEOUT_MS`                              | largest kind timeout + 30000; must exceed it by at least 5000 ms                           |
+| `VIDEO_WORKER_CONCURRENCY`                             | 2, separate from the fast `WORKER_CONCURRENCY` queue                                       |
+| `PROVIDER_CONCURRENCY_MOCK_VIDEO`                      | 2; mock video uses provider code `mock-video` to isolate its slots from mock image/LLM/TTS |
+
+Upgrade old `.env` recovery values such as 150000 to at least 905000 with default video settings (example: 930000). Kind deadlines allow 1000–3600000 ms; recovery allows up to 7200000 ms. Local `.env` was raised to 930000 during this upgrade. Recreate API after environment changes.
+
+Accepted video task IDs are checkpointed before polling. On API startup, unfinished video runs are requeued for polling with their existing task ID and original deadline. The mock persists its task state in PostgreSQL; stable per-run request IDs also make resubmission idempotent across the small acceptance/checkpoint crash window. Real adapters must honor that request ID as an idempotency key. No automatic resubmission occurs after a task ID is recorded. Cancel requests remote task cancellation where supported, then stops local work; conditional updates discard late results.
+
+Video output streams directly into size-capped S3 multipart uploads with sha256 calculated as bytes flow. Failed uploads abort/clean their object; metadata stores no bytes or signed URLs. Audio/video IDs are immutable and served with private one-hour caching; image responses retain no-store. Single byte ranges support bounded, open-ended and suffix requests, returning 206 or 416; Nginx forwards ranges and disables buffering for asset downloads. Object/incomplete multipart cleanup after hard crashes remains production lifecycle work.
+
+To repeat the local restart acceptance, run `$env:VIDEO_RESTART_API='1'; node apps/api/scripts/smoke-video.mjs` in PowerShell, then remove the shell variable when finished. This deliberately SIGKILLs and starts the local Compose API while a fixture task is running. Ordinary CI runs the script without that flag. The prototype remains single API replica; real provider cost guards are still Phase 11.

@@ -8,11 +8,18 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { Upload } from '@aws-sdk/lib-storage';
 import { Readable } from 'node:stream';
 
 export abstract class StorageService {
   abstract put(key: string, bytes: Buffer, mime: string): Promise<void>;
-  abstract get(key: string): Promise<Readable>;
+  abstract get(key: string, range?: string): Promise<Readable>;
+  abstract putStream(
+    key: string,
+    stream: Readable,
+    mime: string,
+    signal?: AbortSignal,
+  ): Promise<void>;
   abstract remove(key: string): Promise<void>;
   abstract signedUrl(key: string): Promise<string>;
 }
@@ -57,9 +64,44 @@ export class S3StorageService
       }),
     );
   }
-  async get(key: string): Promise<Readable> {
+  async putStream(
+    key: string,
+    stream: Readable,
+    mime: string,
+    signal?: AbortSignal,
+  ) {
+    const upload = new Upload({
+      client: this.client,
+      params: {
+        Bucket: this.bucket,
+        Key: key,
+        Body: stream,
+        ContentType: mime,
+      },
+      queueSize: 2,
+      partSize: 5 * 1024 * 1024,
+      leavePartsOnError: false,
+    });
+    const abort = () => {
+      void upload.abort().catch(() => {});
+      stream.destroy(new Error('Upload canceled'));
+    };
+    signal?.throwIfAborted();
+    signal?.addEventListener('abort', abort, { once: true });
+    try {
+      await upload.done();
+      signal?.throwIfAborted();
+    } finally {
+      signal?.removeEventListener('abort', abort);
+    }
+  }
+  async get(key: string, range?: string): Promise<Readable> {
     const result = await this.client.send(
-      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        ...(range ? { Range: range } : {}),
+      }),
     );
     if (!(result.Body instanceof Readable))
       throw new Error('Object storage returned an invalid stream');

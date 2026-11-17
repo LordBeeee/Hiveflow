@@ -42,6 +42,7 @@ export function createNodeRunSchema<T extends NodeDefinitions>(registry: T) {
     error: z.string().nullable(),
     provider: z.string().nullable(),
     model: z.string().nullable().optional(),
+    progress: z.number().min(0).max(100).optional(),
     cacheHit: z.boolean(),
     waiting: z.boolean().optional(),
     createdAt: z.iso.datetime(),

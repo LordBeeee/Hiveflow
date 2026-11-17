@@ -40,7 +40,7 @@ test('keyboard picker inserts and undoes one node, filters categories and traps 
     await page.getByRole('button', { name: 'Add node', exact: true }).click();
     await expect(
       picker.getByRole('button', { name: 'Video', exact: true }),
-    ).toHaveCount(0);
+    ).toHaveCount(1);
     await picker.getByRole('button', { name: 'Image', exact: true }).click();
     await expect(picker.getByRole('option')).toHaveCount(2);
     await search.fill('text');
