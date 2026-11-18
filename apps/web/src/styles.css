@@ -58,16 +58,17 @@ textarea:focus-visible {
 .wordmark {
   display: flex;
   align-items: center;
+  height: 52px;
   flex-shrink: 0;
   overflow: hidden;
   border-radius: 6px;
-  background: #fff;
+  background: transparent;
   text-decoration: none;
 }
 .wordmark img {
   display: block;
   width: 156px;
-  height: 52px;
+  height: 78px;
   object-fit: contain;
 }
 .header-divider {
