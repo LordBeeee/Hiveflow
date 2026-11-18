@@ -1401,3 +1401,39 @@ textarea:focus-visible {
   opacity: 0.8;
   cursor: default;
 }
+.cost-dialog {
+  width: min(480px, calc(100vw - 48px));
+  padding: 26px;
+  border: 1px solid #526440;
+  border-radius: 14px;
+  background: #22291f;
+  color: #e5ecd9;
+  box-shadow: 0 20px 70px #0009;
+}
+.cost-dialog::backdrop {
+  background: #080d0bb0;
+}
+.cost-dialog h2 {
+  font-size: 20px;
+  margin: 0 0 18px;
+}
+.cost-dialog p {
+  line-height: 1.6;
+  font-size: 13px;
+  color: #c4cdb7;
+  margin: 12px 0;
+}
+.cost-dialog p[role='alert'] {
+  color: #edb99e;
+}
+.cost-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+.cost-dialog-actions > button:first-child {
+  padding: 8px 12px;
+  border: 1px solid #59664b;
+  border-radius: 6px;
+}

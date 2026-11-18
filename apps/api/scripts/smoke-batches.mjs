@@ -326,6 +326,7 @@ try {
   const recoveredNode = generator('Recovered persisted batch');
   recoveryGraph.nodes = [recoveredNode];
   const recoverySpace = await create(recoveryGraph);
+  await db.query('BEGIN');
   const recoveredBatch = (
     await db.query(
       "INSERT INTO batches(space_id,graph,levels,status) VALUES($1,$2,$3,'running') RETURNING id",
@@ -336,16 +337,26 @@ try {
       ],
     )
   ).rows[0].id;
-  await db.query(
-    "INSERT INTO node_runs(space_id,batch_id,node_id,node_type,status,input_hash,params,prepared,level) VALUES($1,$2,$3,'image_generator','queued',$4,$5,false,0)",
+  const recoveredRun = await db.query(
+    "INSERT INTO node_runs(space_id,batch_id,node_id,node_type,status,input_hash,params,prepared,level,cost_reserved,cost_provider,cost_units) VALUES($1,$2,$3,'image_generator','queued',$4,$5,false,0,true,true,$6) RETURNING id",
     [
       recoverySpace,
       recoveredBatch,
       recoveredNode.id,
       `pending:${recoveredBatch}`,
       JSON.stringify(recoveredNode.params),
+      shared.estimateModelUnits(
+        shared.findModel('mock-image'),
+        recoveredNode.params,
+        { ports: {} },
+      ),
     ],
   );
+  await db.query(
+    "INSERT INTO usage_ledger(user_id,run_id,units,entry_type,budget_date) SELECT cost_user_id,id,cost_units,'reserve',budget_date FROM node_runs WHERE id=$1",
+    [recoveredRun.rows[0].id],
+  );
+  await db.query('COMMIT');
   assert.equal(
     (await complete(recoverySpace, recoveredBatch)).status,
     'succeeded',
@@ -393,6 +404,10 @@ try {
           Key: asset.storage_key,
         }),
       );
+    await db.query(
+      'DELETE FROM usage_ledger WHERE run_id IN (SELECT id FROM node_runs WHERE space_id=$1)',
+      [id],
+    );
     await db.query('DELETE FROM spaces WHERE id=$1', [id]);
   }
   storage.destroy();

@@ -1,3 +1,4 @@
+import type { CostsService } from './costs.service';
 import type { Repository, FindOperator } from 'typeorm';
 import { emptyGraph, topoSort } from '@hiveflow/shared';
 import type { SpacesService } from '../spaces/spaces.service';
@@ -91,6 +92,9 @@ function setup() {
     {} as SpacesService,
     execution as unknown as RunsService,
     new RunEvents(),
+    {
+      refund: jest.fn().mockResolvedValue(undefined),
+    } as unknown as CostsService,
   );
   return { service, rows, batch, graph, prepare };
 }

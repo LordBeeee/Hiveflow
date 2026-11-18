@@ -1,3 +1,5 @@
+import { UnprocessableEntityException } from '@nestjs/common';
+import { CostsService } from './costs.service';
 import {
   BadRequestException,
   Injectable,
@@ -63,10 +65,21 @@ export class RunsService {
     private readonly inputResolver: InputResolver,
     private readonly cache: RunCache,
     private readonly models: ModelsService,
+    private readonly costs: CostsService,
   ) {}
+  onModuleInit() {
+    this.spaces.setExecutionCleanup?.(async (spaceId) => {
+      const rows = await this.runs.find({
+        where: { spaceId, status: In(['queued', 'running']) },
+      });
+      await this.cancelIds(rows.map((run) => run.id));
+    });
+  }
   private prepare(node: GraphNode, inputs: ResolvedInputs) {
     try {
-      return { ...this.models.prepare(node, inputs), inputs };
+      const prepared = this.models.prepare(node, inputs);
+      this.costs.price(prepared.params, inputs);
+      return { ...prepared, inputs };
     } catch (error) {
       return {
         params: node.params,
@@ -101,45 +114,73 @@ export class RunsService {
       !force && !inputs.error
         ? await this.cache.find(spaceId, nodeId, hash)
         : null;
-    let run: NodeRunEntity | null = null;
-    for (let attempt = 0; attempt < 3 && !run; attempt++) {
-      const rows: { id: string }[] = await this.runs.query(
-        `INSERT INTO node_runs (space_id, node_id, node_type, status, input_hash, params, inputs, output, provider, cache_hit, finished_at, model, provider_kind)
+    const run = await this.runs.manager.transaction(async (manager) => {
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+        spaceId,
+      ]);
+      await this.costs.lockUser(manager, user.id);
+      let run: NodeRunEntity | null = null;
+      for (let attempt = 0; attempt < 3 && !run; attempt++) {
+        const rows: { id: string }[] = await manager.query(
+          `INSERT INTO node_runs (space_id, node_id, node_type, status, input_hash, params, inputs, output, provider, cache_hit, finished_at, model, provider_kind)
         SELECT $1, $2, $3, $7, $4, $5::jsonb, $6::jsonb, $8::jsonb, $9, $10, CASE WHEN $10 THEN now() ELSE NULL END, $11, $12
         WHERE NOT EXISTS (SELECT 1 FROM node_runs WHERE space_id=$1 AND node_id=$2 AND input_hash=$4 AND status IN ('queued','running'))
         ON CONFLICT (space_id, node_id, input_hash) WHERE status IN ('queued','running') DO NOTHING RETURNING id`,
-        [
-          spaceId,
-          nodeId,
-          node.type,
-          hash,
-          JSON.stringify(prepared.params),
-          JSON.stringify(inputs),
-          cached ? 'succeeded' : 'queued',
-          JSON.stringify(cached?.output ?? null),
-          cached?.provider ?? prepared.provider,
-          !!cached,
-          prepared.model,
-          prepared.model
-            ? (nodeRegistry[node.type] as import('@hiveflow/shared').NodeDef)
-                .modelKind
-            : null,
-        ],
-      );
-      run = rows.length
-        ? await this.runs.findOneByOrFail({ id: rows[0].id })
-        : await this.runs.findOne({
-            where: {
-              spaceId,
-              nodeId,
-              inputHash: hash,
-              status: In(['queued', 'running']),
-            },
-            order: { sequence: 'DESC' },
+          [
+            spaceId,
+            nodeId,
+            node.type,
+            hash,
+            JSON.stringify(prepared.params),
+            JSON.stringify(inputs),
+            cached ? 'succeeded' : 'queued',
+            JSON.stringify(cached?.output ?? null),
+            cached?.provider ?? prepared.provider,
+            !!cached,
+            prepared.model,
+            prepared.model
+              ? (nodeRegistry[node.type] as import('@hiveflow/shared').NodeDef)
+                  .modelKind
+              : null,
+          ],
+        );
+        if (rows.length) {
+          const units =
+            cached || inputs.error
+              ? 0
+              : this.costs.price(prepared.params, inputs);
+          this.costs.enforce({
+            providerNodes: !cached && !inputs.error && prepared.model ? 1 : 0,
+            units,
           });
-    }
-    if (!run)
-      throw new BadRequestException('Could not queue this node. Please retry.');
+          await this.costs.reserve(
+            manager,
+            user.id,
+            rows[0].id,
+            units,
+            !cached && !inputs.error && !!prepared.model,
+          );
+        }
+        run = rows.length
+          ? await manager
+              .getRepository(NodeRunEntity)
+              .findOneByOrFail({ id: rows[0].id })
+          : await manager.getRepository(NodeRunEntity).findOne({
+              where: {
+                spaceId,
+                nodeId,
+                inputHash: hash,
+                status: In(['queued', 'running']),
+              },
+              order: { sequence: 'DESC' },
+            });
+      }
+      if (!run)
+        throw new BadRequestException(
+          'Could not queue this node. Please retry.',
+        );
+      return run;
+    });
     this.events.emit(runDto(run));
     // PostgreSQL is the source of truth. Reconciliation repairs this enqueue gap on Redis failure.
     if (run.status === 'queued')
@@ -324,6 +365,7 @@ export class RunsService {
         })
         .where('id = :id AND status = :status', { id, status: 'running' })
         .execute();
+      await this.costs.refund(id);
       await this.emit(id);
     } finally {
       clearTimeout(timeout);
@@ -352,6 +394,7 @@ export class RunsService {
     for (const row of rows)
       this.active.get(row.id)?.abort(new Error('Run canceled'));
     for (const row of rows) {
+      await this.costs.refund(row.id);
       const run = await this.runs.findOneBy({ id: row.id });
       if (run?.providerTaskId)
         await this.executors
@@ -380,37 +423,53 @@ export class RunsService {
         ? await this.cache.find(run.spaceId, run.nodeId, hash)
         : null;
     try {
-      const changed = await this.runs
-        .createQueryBuilder()
-        .update(NodeRunEntity)
-        .set({
-          inputs: () => 'CAST(:inputs AS jsonb)',
-          params: () => 'CAST(:params AS jsonb)',
-          model: prepared.model,
-          provider: prepared.provider,
-          providerKind: prepared.model
-            ? (nodeRegistry[node.type] as import('@hiveflow/shared').NodeDef)
-                .modelKind
-            : null,
-          inputHash: hash,
-          prepared: true,
-          ...(cached
-            ? {
-                status: 'succeeded' as const,
-                output: () => 'CAST(:output AS jsonb)',
-                provider: cached.provider,
-                cacheHit: true,
-                finishedAt: new Date(),
-              }
-            : {}),
-        })
-        .setParameters({
-          output: JSON.stringify(cached?.output ?? null),
-          inputs: JSON.stringify(inputs),
-          params: JSON.stringify(prepared.params),
-        })
-        .where("id=:id AND status='queued' AND prepared=false", { id: run.id })
-        .execute();
+      const changed = await this.runs.manager.transaction(async (manager) => {
+        await this.costs.lockRunUser(manager, run.id);
+        const changed = await manager
+          .getRepository(NodeRunEntity)
+          .createQueryBuilder()
+          .update(NodeRunEntity)
+          .set({
+            inputs: () => 'CAST(:inputs AS jsonb)',
+            params: () => 'CAST(:params AS jsonb)',
+            model: prepared.model,
+            provider: prepared.provider,
+            providerKind: prepared.model
+              ? (nodeRegistry[node.type] as import('@hiveflow/shared').NodeDef)
+                  .modelKind
+              : null,
+            inputHash: hash,
+            prepared: true,
+            ...(cached
+              ? {
+                  status: 'succeeded' as const,
+                  output: () => 'CAST(:output AS jsonb)',
+                  provider: cached.provider,
+                  cacheHit: true,
+                  finishedAt: new Date(),
+                }
+              : {}),
+          })
+          .setParameters({
+            output: JSON.stringify(cached?.output ?? null),
+            inputs: JSON.stringify(inputs),
+            params: JSON.stringify(prepared.params),
+          })
+          .where("id=:id AND status='queued' AND prepared=false", {
+            id: run.id,
+          })
+          .execute();
+        if (changed.affected)
+          await this.costs.adjust(
+            manager,
+            run.id,
+            cached || inputs.error
+              ? 0
+              : this.costs.price(prepared.params, inputs),
+            !cached && !inputs.error && !!prepared.model,
+          );
+        return changed;
+      });
       if (changed.affected) {
         await this.emit(run.id);
         if (!cached)
@@ -423,6 +482,15 @@ export class RunsService {
             .catch(() => {});
       }
     } catch (error) {
+      if (error instanceof UnprocessableEntityException) {
+        await this.runs.update(
+          { id: run.id, status: 'queued' },
+          { status: 'failed', error: error.message, finishedAt: new Date() },
+        );
+        await this.costs.refund(run.id);
+        await this.emit(run.id);
+        return;
+      }
       // An identical active single-node run may own the unique hash; retry preparation next tick.
       if (!(
         error &&
@@ -434,6 +502,7 @@ export class RunsService {
     }
   }
   async reconcile(startup = false) {
+    await this.costs.reconcileRefunds();
     if (startup) {
       const recovered: { id: string; provider_kind: string }[] =
         await this.runs.query(

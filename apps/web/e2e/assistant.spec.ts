@@ -1,3 +1,4 @@
+import { runAll } from './helpers';
 import { test, expect } from '@playwright/test';
 test('Assistant picker, chained Run all, copy, cache, stale and cancel', async ({
   page,
@@ -70,7 +71,7 @@ test('Assistant picker, chained Run all, copy, cache, stale and cancel', async (
     await expect(
       assistantCard.getByRole('option', { name: /Assistant Studio/ }),
     ).toBeDisabled();
-    await page.getByRole('button', { name: 'Run all', exact: true }).click();
+    await runAll(page);
     await expect(page.getByLabel('Batch status')).toContainText('succeeded', {
       timeout: 25000,
     });
@@ -95,7 +96,7 @@ test('Assistant picker, chained Run all, copy, cache, stale and cancel', async (
         '\n',
       ),
     ).toBe(await result.innerText());
-    await page.getByRole('button', { name: 'Run all', exact: true }).click();
+    await runAll(page);
     await expect(
       assistantCard.getByText('Cache hit', { exact: true }),
     ).toBeVisible();
@@ -107,7 +108,7 @@ test('Assistant picker, chained Run all, copy, cache, stale and cancel', async (
       page.getByText('Stale · inputs changed', { exact: true }),
     ).toHaveCount(2);
     await page.getByLabel('Force rerun', { exact: true }).check();
-    await page.getByRole('button', { name: 'Run all', exact: true }).click();
+    await runAll(page);
     await page
       .getByRole('button', { name: 'Cancel batch', exact: true })
       .click();

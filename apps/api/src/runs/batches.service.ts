@@ -1,7 +1,17 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { CostsService } from './costs.service';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import { topoSort, type Batch, type SpaceGraph } from '@hiveflow/shared';
+import {
+  topoSort,
+  costGraphHash,
+  type Batch,
+  type SpaceGraph,
+} from '@hiveflow/shared';
 import type { User } from '../auth/current-user';
 import { SpacesService } from '../spaces/spaces.service';
 import { BatchEntity } from './batch.entity';
@@ -33,8 +43,19 @@ export class BatchesService {
     private readonly spaces: SpacesService,
     private readonly execution: RunsService,
     private readonly events: RunEvents,
+    private readonly costs: CostsService,
   ) {}
-  async start(user: User, spaceId: string, force = false) {
+  async start(
+    user: User,
+    spaceId: string,
+    force = false,
+    approved?: {
+      version?: number;
+      graphHash?: string;
+      maxUnits?: number;
+      maxProviderNodes?: number;
+    },
+  ) {
     const space = await this.spaces.get(user, spaceId);
     const levels = topoSort(space.graph);
     const id = await this.batches.manager.transaction(async (manager) => {
@@ -45,21 +66,42 @@ export class BatchesService {
         where: { spaceId, status: 'running' },
       });
       if (existing) return existing.id;
+      if (
+        approved?.graphHash
+          ? approved.graphHash !== (await costGraphHash(space.graph))
+          : approved?.version !== undefined &&
+            approved.version !== space.version
+      )
+        throw new ConflictException(
+          'The graph changed. Review a fresh cost estimate before running.',
+        );
+      await this.costs.lockUser(manager, user.id);
+      const plan = await this.costs.plan(spaceId, space.graph, force);
+      this.costs.enforce(plan.estimate);
+      if (
+        (approved?.maxUnits !== undefined &&
+          plan.estimate.units > approved.maxUnits) ||
+        (approved?.maxProviderNodes !== undefined &&
+          plan.estimate.providerNodes > approved.maxProviderNodes)
+      )
+        throw new ConflictException(
+          'The estimate changed. Review it again before running.',
+        );
       const batch = await manager.save(
         BatchEntity,
         manager.create(BatchEntity, {
           spaceId,
-          graph: space.graph,
+          graph: plan.graph,
           levels,
           force,
           status: 'running',
         }),
       );
       for (const [level, ids] of levels.entries()) {
-        await manager.save(
+        const createdRuns = await manager.save(
           NodeRunEntity,
           ids.map((nodeId) => {
-            const node = space.graph.nodes.find((node) => node.id === nodeId)!;
+            const node = plan.graph.nodes.find((node) => node.id === nodeId)!;
             return manager.create(NodeRunEntity, {
               spaceId,
               batchId: batch.id,
@@ -73,6 +115,16 @@ export class BatchesService {
             });
           }),
         );
+        for (const run of createdRuns)
+          await this.costs.reserve(
+            manager,
+            user.id,
+            run.id,
+            plan.estimate.nodes.find((quote) => quote.nodeId === run.nodeId)
+              ?.units ?? 0,
+            plan.estimate.nodes.find((quote) => quote.nodeId === run.nodeId)
+              ?.providerCall ?? false,
+          );
       }
       return batch.id;
     });
@@ -181,6 +233,7 @@ export class BatchesService {
                 finishedAt: new Date(),
               },
             );
+            await this.costs.refund(run.id);
             await this.execution.emit(run.id);
           } else
             await this.execution.prepareBatchRun(

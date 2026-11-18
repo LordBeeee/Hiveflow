@@ -1,5 +1,22 @@
 import { validateEnvironment } from './config';
 const env = { DATABASE_URL: 'postgresql://localhost/test' };
+it('accepts zero budget limits and rejects negative limits', () => {
+  const result = validateEnvironment({
+    ...env,
+    MAX_BATCH_PROVIDER_NODES: 0,
+    MAX_BATCH_UNITS: 0,
+    DAILY_UNITS_LIMIT: 0,
+  });
+  expect(result.MAX_BATCH_PROVIDER_NODES).toBe(0);
+  expect(result.MAX_BATCH_UNITS).toBe(0);
+  expect(result.DAILY_UNITS_LIMIT).toBe(0);
+  for (const key of [
+    'MAX_BATCH_PROVIDER_NODES',
+    'MAX_BATCH_UNITS',
+    'DAILY_UNITS_LIMIT',
+  ])
+    expect(() => validateEnvironment({ ...env, [key]: -1 })).toThrow(key);
+});
 it('uses per-kind deadlines and recovery above the largest timeout', () => {
   const result = validateEnvironment(env);
   expect(result.VIDEO_TIMEOUT_MS).toBe(900000);

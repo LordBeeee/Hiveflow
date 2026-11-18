@@ -1,3 +1,4 @@
+import { runAll } from './helpers';
 import { test, expect } from '@playwright/test';
 
 test('create Space, connect Text, Run all, cache, stale and cancel', async ({
@@ -34,7 +35,7 @@ test('create Space, connect Text, Run all, cache, stale and cancel', async ({
     await expect(
       page.getByText('Prompt from Text #1 · local prompt overridden'),
     ).toBeVisible();
-    await page.getByRole('button', { name: 'Run all', exact: true }).click();
+    await runAll(page);
     await expect(page.getByLabel('Batch status')).toContainText('succeeded', {
       timeout: 25000,
     });
@@ -48,7 +49,7 @@ test('create Space, connect Text, Run all, cache, stale and cancel', async ({
           (image: HTMLImageElement) => image.complete && image.naturalWidth > 0,
         ),
     ).toBe(true);
-    await page.getByRole('button', { name: 'Run all', exact: true }).click();
+    await runAll(page);
     await expect(page.getByText('Cache hit', { exact: true })).toBeVisible({
       timeout: 10000,
     });
@@ -60,7 +61,7 @@ test('create Space, connect Text, Run all, cache, stale and cancel', async ({
       page.getByText('Stale · inputs changed', { exact: true }),
     ).toBeVisible();
     await page.getByLabel('Force rerun', { exact: true }).check();
-    await page.getByRole('button', { name: 'Run all', exact: true }).click();
+    await runAll(page);
     await page
       .getByRole('button', { name: 'Cancel batch', exact: true })
       .click();

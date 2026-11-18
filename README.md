@@ -128,7 +128,7 @@ The optional Vite development server proxies `/health` and `/api/*` to port 3000
 - `SPACES_PLAN.md`: phase acceptance criteria and remaining prototype scope.
 - `NODES_PLAN.md`: continuation for node picker, platform generalization and additional media nodes.
 
-Phases 0–10 are implemented. Next is Phase 11: cost guards before real providers. See `docs/PHASE_3_CHECKS.md` through `docs/PHASE_10_CHECKS.md` for verification evidence. The default provider remains a mock. Production work includes real authentication, shared event/rate-limit infrastructure for multiple API replicas and orphan-object cleanup.
+Phases 0–10 and Phase 11.1 (cost guards) are implemented. Phase 11.2 (real adapters) awaits the existing KlingService/Seedance client and the selected LLM/TTS providers. See `docs/PHASE_3_CHECKS.md` through `docs/PHASE_10_CHECKS.md` for verification evidence. The default provider remains a mock. Production work includes real authentication, shared event/rate-limit infrastructure for multiple API replicas and orphan-object cleanup.
 
 ## Models and platform (Phase 7)
 
@@ -196,3 +196,23 @@ Accepted video task IDs are checkpointed before polling. On API startup, unfinis
 Video output streams directly into size-capped S3 multipart uploads with sha256 calculated as bytes flow. Failed uploads abort/clean their object; metadata stores no bytes or signed URLs. Audio/video IDs are immutable and served with private one-hour caching; image responses retain no-store. Single byte ranges support bounded, open-ended and suffix requests, returning 206 or 416; Nginx forwards ranges and disables buffering for asset downloads. Object/incomplete multipart cleanup after hard crashes remains production lifecycle work.
 
 To repeat the local restart acceptance, run `$env:VIDEO_RESTART_API='1'; node apps/api/scripts/smoke-video.mjs` in PowerShell, then remove the shell variable when finished. This deliberately SIGKILLs and starts the local Compose API while a fixture task is running. Ordinary CI runs the script without that flag. The prototype remains single API replica; real provider cost guards are still Phase 11.
+
+## Cost guard (Phase 11.1)
+
+Run all now opens **Review estimated cost** before creating jobs. Cancel leaves usage unchanged. Node Run/Force rerun tooltips show estimates for the saved graph. Cache hits cost zero; Force rerun reserves provider credits again. Mock rates are simulated abstract credits, with no external charges.
+
+`POST /api/spaces/:id/run/estimate` returns provider/cached node counts, units, per-node details and an approval fingerprint. Unresolved upstream generation makes the quote a conservative upper bound; Voiceover reserves up to its 5,000-character input maximum. Execution releases unused reservations. The confirmed graph content and cost caps are checked again before admission; camera/layout edits do not invalidate approval. Changed content, lost cache or higher prices require another review rather than silently increasing a reservation.
+
+| Variable                   | Default | Purpose                                                 |
+| -------------------------- | ------- | ------------------------------------------------------- |
+| `MAX_BATCH_PROVIDER_NODES` | 100     | Maximum uncached provider nodes per batch or single run |
+| `MAX_BATCH_UNITS`          | 1000    | Maximum reserved credits per batch or single run        |
+| `DAILY_UNITS_LIMIT`        | 10000   | Daily credits per user, measured by UTC admission date  |
+
+All limits accept zero. Over-limit admission returns 422 before queueing work. `GET /api/usage` reports the current user's usage, limit and remaining credits. Recreate the API after changing environment values. The normal Docker start remains `docker compose up --build -d`; database migrations run automatically.
+
+Image credits are catalog rate × image count × resolution factor (1K: 1, 2K: 2, 4K: 4). Video credits are rate × requested seconds × resolution factor (720p: 1, 1080p: 2). LLM uses a flat catalog rate; TTS uses rate per 1,000 effective UTF-16 characters, rounded up to 0.001 credit. Mock image/LLM/TTS base rates are 1 and mock video is 2. These are illustrative rates, not vendor pricing or money.
+
+PostgreSQL records reserve, adjustment and refund entries. Admission and reservations commit together under a per-user lock, including concurrent daily-limit checks. Failure/cancel refunds are idempotent and reconciliation repairs interrupted refunds. Refunds apply to the original UTC budget day. Removing a workflow cancels/refunds active work and retains completed usage audit IDs. Existing runs from earlier phases keep their historical zero mock cost. The deployment still assumes one API instance.
+
+Phase 11.2 remains pending: supply paths to the existing Video AI application's `KlingService` and Seedance client, and name one LLM and one TTS provider. The plan requires porting that existing video request/poll logic. No paid adapters, credentials, recorded vendor fixtures or live-check claims have been added. See `docs/PHASE_11_CHECKS.md`.

@@ -1,3 +1,4 @@
+import { CostEstimateProvider } from '../api/costs';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ReactFlowProvider } from '@xyflow/react';
@@ -152,89 +153,95 @@ function SpaceEditor({ space }: { space: SpaceDocument }) {
   };
   return (
     <ExecutionContext.Provider value={execution.actions}>
-      <ReactFlowProvider>
-        <SpaceCanvas
-          spaceName={name}
-          onNameChange={changeName}
-          onBack={() => void back()}
-          headerEnd={
-            <>
-              <RunControls
-                spaceId={space.id}
-                prepare={async () => {
-                  await execution.waitForUploads();
-                  await controllerRef.current?.flush();
-                }}
-              />
-              <span
-                role="status"
-                className={`save-indicator save-${save.status}`}
-                title={save.message}
-              >
-                <span />
-                {labels[save.status]}
-              </span>
-              {save.status === 'error' && (
-                <button
-                  className="header-button"
-                  onClick={() =>
-                    void controllerRef.current?.flush().catch(() => {})
-                  }
+      <CostEstimateProvider
+        spaceId={space.id}
+        version={save.version}
+        saved={ready && save.status === 'saved'}
+      >
+        <ReactFlowProvider>
+          <SpaceCanvas
+            spaceName={name}
+            onNameChange={changeName}
+            onBack={() => void back()}
+            headerEnd={
+              <>
+                <RunControls
+                  spaceId={space.id}
+                  prepare={async () => {
+                    await execution.waitForUploads();
+                    await controllerRef.current?.flush();
+                  }}
+                />
+                <span
+                  role="status"
+                  className={`save-indicator save-${save.status}`}
+                  title={save.message}
                 >
-                  Retry save
-                </button>
-              )}
-              <span className="avatar">H</span>
-            </>
-          }
-          notice={
-            save.status === 'conflict' ||
-            save.status === 'error' ||
-            actionError ? (
-              <div
-                className={`save-notice ${save.status === 'conflict' ? 'conflict' : ''}`}
-                role="alert"
-              >
-                <div>
-                  <strong>
-                    {save.status === 'conflict'
-                      ? 'This space changed in another tab.'
-                      : 'Your changes have not been saved.'}
-                  </strong>
-                  <p>
-                    {actionError ??
-                      (save.status === 'conflict'
-                        ? 'Your edits are kept here. Reload the saved version or save your work as a new space.'
-                        : save.message)}
-                  </p>
-                </div>
-                <div className="save-notice-actions">
-                  <button disabled={working} onClick={() => void copy()}>
-                    Save as copy
+                  <span />
+                  {labels[save.status]}
+                </span>
+                {save.status === 'error' && (
+                  <button
+                    className="header-button"
+                    onClick={() =>
+                      void controllerRef.current?.flush().catch(() => {})
+                    }
+                  >
+                    Retry save
                   </button>
-                  {save.status === 'conflict' && (
-                    <button
-                      disabled={working}
-                      onClick={() => {
-                        if (
-                          window.confirm(
-                            'Replace your local edits with the saved version?',
-                          )
-                        ) {
-                          controllerRef.current?.dispose();
-                          window.location.reload();
-                        }
-                      }}
-                    >
-                      Reload saved version
+                )}
+                <span className="avatar">H</span>
+              </>
+            }
+            notice={
+              save.status === 'conflict' ||
+              save.status === 'error' ||
+              actionError ? (
+                <div
+                  className={`save-notice ${save.status === 'conflict' ? 'conflict' : ''}`}
+                  role="alert"
+                >
+                  <div>
+                    <strong>
+                      {save.status === 'conflict'
+                        ? 'This space changed in another tab.'
+                        : 'Your changes have not been saved.'}
+                    </strong>
+                    <p>
+                      {actionError ??
+                        (save.status === 'conflict'
+                          ? 'Your edits are kept here. Reload the saved version or save your work as a new space.'
+                          : save.message)}
+                    </p>
+                  </div>
+                  <div className="save-notice-actions">
+                    <button disabled={working} onClick={() => void copy()}>
+                      Save as copy
                     </button>
-                  )}
+                    {save.status === 'conflict' && (
+                      <button
+                        disabled={working}
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              'Replace your local edits with the saved version?',
+                            )
+                          ) {
+                            controllerRef.current?.dispose();
+                            window.location.reload();
+                          }
+                        }}
+                      >
+                        Reload saved version
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ) : null
-          }
-        />
-      </ReactFlowProvider>
+              ) : null
+            }
+          />
+        </ReactFlowProvider>
+      </CostEstimateProvider>
     </ExecutionContext.Provider>
   );
 }

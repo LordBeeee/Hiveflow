@@ -1,3 +1,4 @@
+import { runAll } from './helpers';
 import { test, expect } from '@playwright/test';
 import { nodeRegistry } from '@hiveflow/shared';
 test('Assistant branches to image, voice and video with progress, playback/seek, Range, cache, stale and cancel', async ({
@@ -61,7 +62,7 @@ test('Assistant branches to image, voice and video with progress, playback/seek,
     await expect(
       videoCard.getByRole('option', { name: /Video Studio/ }),
     ).toBeDisabled();
-    await page.getByRole('button', { name: 'Run all', exact: true }).click();
+    await runAll(page);
     await expect
       .poll(
         async () =>
@@ -118,7 +119,7 @@ test('Assistant branches to image, voice and video with progress, playback/seek,
     expect(partial.status()).toBe(206);
     expect(partial.headers()['content-range']).toMatch(/^bytes 0-15\//);
     expect((await partial.body()).length).toBe(16);
-    await page.getByRole('button', { name: 'Run all', exact: true }).click();
+    await runAll(page);
     await expect(page.getByText('Cache hit', { exact: true })).toHaveCount(4);
     await expect(page.getByLabel('Batch status')).toContainText('succeeded');
     await videoCard
@@ -169,7 +170,7 @@ test('Assistant branches to image, voice and video with progress, playback/seek,
       page.getByText('Stale · inputs changed', { exact: true }),
     ).toHaveCount(4);
     await page.getByLabel('Force rerun', { exact: true }).check();
-    await page.getByRole('button', { name: 'Run all', exact: true }).click();
+    await runAll(page);
     await page
       .getByRole('button', { name: 'Cancel batch', exact: true })
       .click();

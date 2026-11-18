@@ -1,3 +1,4 @@
+import { CostButton } from '../api/costs';
 import { Handle, NodeToolbar, Position, type Node } from '@xyflow/react';
 import {
   nodeRegistry,
@@ -48,14 +49,15 @@ export function NodeFrame({
         className="node-floating-toolbar nodrag nopan"
       >
         {!!definition.modelKind && (
-          <button
+          <CostButton
+            nodeId={node.id}
             disabled={busy || !!runDisabledReason}
             title={runDisabledReason}
             onClick={() => void runNode(node.id)}
           >
             <Icon name="play" size={14} />
             Run
-          </button>
+          </CostButton>
         )}
         <button
           aria-label={`Delete ${definition.label} #${number}`}

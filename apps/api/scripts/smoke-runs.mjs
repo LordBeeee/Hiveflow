@@ -415,6 +415,10 @@ try {
           Key: asset.storage_key,
         }),
       );
+    await db.query(
+      'DELETE FROM usage_ledger WHERE run_id IN (SELECT id FROM node_runs WHERE space_id=$1)',
+      [id],
+    );
     await db.query('DELETE FROM spaces WHERE id=$1', [id]);
   }
   storage.destroy();

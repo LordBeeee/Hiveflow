@@ -57,7 +57,7 @@ export const modelCatalog: readonly ModelDefinition[] = [
     aliases: ['mock-image-v1'],
     capabilities: imageCapabilities,
     options: [],
-    costUnits: 0,
+    costUnits: 1,
   },
   {
     id: 'mock-image-compact',
@@ -90,7 +90,7 @@ export const modelCatalog: readonly ModelDefinition[] = [
       },
       { key: 'softLight', label: 'Soft light', type: 'boolean', default: true },
     ],
-    costUnits: 0,
+    costUnits: 1,
   },
   {
     id: 'mock-image-legacy',
@@ -101,7 +101,7 @@ export const modelCatalog: readonly ModelDefinition[] = [
     status: 'removed',
     capabilities: imageCapabilities,
     options: [],
-    costUnits: 0,
+    costUnits: 1,
   },
   {
     id: 'image-studio',
@@ -123,7 +123,7 @@ export const modelCatalog: readonly ModelDefinition[] = [
     status: 'active',
     capabilities: { supportsImageInput: true },
     options: [],
-    costUnits: 0,
+    costUnits: 1,
   },
   {
     id: 'mock-llm-text',
@@ -134,7 +134,7 @@ export const modelCatalog: readonly ModelDefinition[] = [
     status: 'active',
     capabilities: { supportsImageInput: false },
     options: [],
-    costUnits: 0,
+    costUnits: 1,
   },
   {
     id: 'assistant-studio',
@@ -160,7 +160,7 @@ export const modelCatalog: readonly ModelDefinition[] = [
       speed: { min: 0.75, max: 1.5, default: 1 },
     },
     options: [],
-    costUnits: 0,
+    costUnits: 1,
   },
   {
     id: 'mock-video',
@@ -177,7 +177,7 @@ export const modelCatalog: readonly ModelDefinition[] = [
       supportsAudio: true,
     },
     options: [],
-    costUnits: 0,
+    costUnits: 2,
   },
   {
     id: 'mock-tts-narration',
@@ -192,7 +192,7 @@ export const modelCatalog: readonly ModelDefinition[] = [
       speed: { min: 0.8, max: 1.25, default: 1 },
     },
     options: [],
-    costUnits: 0,
+    costUnits: 1,
   },
   {
     id: 'voice-studio',
@@ -224,7 +224,7 @@ export const modelCatalog: readonly ModelDefinition[] = [
       supportsAudio: false,
     },
     options: [],
-    costUnits: 0,
+    costUnits: 2,
   },
   {
     id: 'video-studio',

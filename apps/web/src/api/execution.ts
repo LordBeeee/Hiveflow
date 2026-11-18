@@ -36,10 +36,19 @@ export const executionApi = {
           `/spaces/${spaceId}/runs${succeeded ? '?succeeded=true' : ''}`,
         ),
       ),
-  runAll: (spaceId: string, force = false) =>
+  runAll: (
+    spaceId: string,
+    force = false,
+    approved?: {
+      version?: number;
+      graphHash?: string;
+      maxUnits?: number;
+      maxProviderNodes?: number;
+    },
+  ) =>
     request(`/spaces/${spaceId}/run`, {
       method: 'POST',
-      body: JSON.stringify({ force }),
+      body: JSON.stringify({ force, ...approved }),
     }),
   batches: async (spaceId: string) =>
     batchSchema.array().parse(await request(`/spaces/${spaceId}/batches`)),

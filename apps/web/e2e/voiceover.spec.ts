@@ -1,3 +1,4 @@
+import { runAll } from './helpers';
 import { test, expect } from '@playwright/test';
 import { nodeRegistry } from '@hiveflow/shared';
 test('Voiceover model coercion, script-writer workflow, audio playback, cache, stale and cancel', async ({
@@ -113,7 +114,7 @@ test('Voiceover model coercion, script-writer workflow, audio playback, cache, s
     await expect(
       card.getByText('Script from Assistant #1 · local script overridden'),
     ).toBeVisible();
-    await page.getByRole('button', { name: 'Run all', exact: true }).click();
+    await runAll(page);
     await expect(page.getByLabel('Batch status')).toContainText('succeeded', {
       timeout: 25000,
     });
@@ -149,7 +150,7 @@ test('Voiceover model coercion, script-writer workflow, audio playback, cache, s
       await page.getByLabel('Assistant #1 result', { exact: true }).innerText(),
     );
     const original = await audio.getAttribute('src');
-    await page.getByRole('button', { name: 'Run all', exact: true }).click();
+    await runAll(page);
     await expect(card.getByText('Cache hit', { exact: true })).toBeVisible();
     await expect(page.getByLabel('Batch status')).toContainText('succeeded');
     expect(await audio.getAttribute('src')).toBe(original);
@@ -160,7 +161,7 @@ test('Voiceover model coercion, script-writer workflow, audio playback, cache, s
       page.getByText('Stale · inputs changed', { exact: true }),
     ).toHaveCount(2);
     await page.getByLabel('Force rerun', { exact: true }).check();
-    await page.getByRole('button', { name: 'Run all', exact: true }).click();
+    await runAll(page);
     await page
       .getByRole('button', { name: 'Cancel batch', exact: true })
       .click();

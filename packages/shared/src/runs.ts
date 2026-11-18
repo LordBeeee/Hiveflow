@@ -73,6 +73,15 @@ export const batchEventSchema = batchSchema.extend({
 export const runRequestSchema = z
   .object({ force: z.boolean().optional() })
   .strict();
+export const batchRunRequestSchema = runRequestSchema.extend({
+  graphHash: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/)
+    .optional(),
+  version: z.number().int().positive().optional(),
+  maxUnits: z.number().nonnegative().optional(),
+  maxProviderNodes: z.number().int().nonnegative().optional(),
+});
 export const uploadRequestSchema = z.object({ spaceId: z.uuid() }).strict();
 
 export async function inputHash(value: unknown): Promise<string> {

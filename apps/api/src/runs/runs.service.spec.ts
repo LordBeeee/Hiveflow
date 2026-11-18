@@ -1,3 +1,4 @@
+import type { CostsService } from './costs.service';
 import { ConfigService } from '@nestjs/config';
 import type { Repository } from 'typeorm';
 import type { SpacesService } from '../spaces/spaces.service';
@@ -58,7 +59,10 @@ function setup(claimed = true, running = 0) {
     manager: {
       transaction: async (action: (manager: unknown) => Promise<unknown>) =>
         action({
-          query: async () => {},
+          query: async (sql: string, ...args: unknown[]) =>
+            sql.startsWith('SELECT pg_advisory')
+              ? []
+              : repo.query(sql, ...args),
           count: async () => running,
           getRepository: () => repo,
         }),
@@ -98,6 +102,16 @@ function setup(claimed = true, running = 0) {
         provider: null,
       }),
     } as unknown as ModelsService,
+    {
+      price: () => 0,
+      lockUser: jest.fn().mockResolvedValue(undefined),
+      reserve: jest.fn().mockResolvedValue(undefined),
+      enforce: jest.fn(),
+      lockRunUser: jest.fn().mockResolvedValue(undefined),
+      adjust: jest.fn().mockResolvedValue(undefined),
+      refund: jest.fn().mockResolvedValue(undefined),
+      reconcileRefunds: jest.fn().mockResolvedValue(undefined),
+    } as unknown as CostsService,
   );
   return { service, execute, changes, builder, row, emit, repo, queue, cache };
 }
@@ -122,8 +136,10 @@ it('checkpoints accepted task IDs and emits progress only when it changes', asyn
     return { output: { video: [] } };
   });
   await service.process(row.id);
-  expect(repo.query).toHaveBeenCalledTimes(1);
-  expect(repo.query.mock.calls[0][0]).toContain('provider_task_id');
+  const checkpoints = repo.query.mock.calls.filter(([sql]) =>
+    String(sql).includes('provider_task_id'),
+  );
+  expect(checkpoints).toHaveLength(1);
   expect(
     emit.mock.calls
       .filter(([run]) => run.progress !== undefined)

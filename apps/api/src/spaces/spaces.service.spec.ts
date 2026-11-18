@@ -43,8 +43,13 @@ function setup() {
     async (
       callback: (manager: {
         getRepository: () => typeof repo;
+        query: (...args: unknown[]) => Promise<unknown>;
       }) => Promise<unknown>,
-    ) => callback({ getRepository: () => repo }),
+    ) =>
+      callback({
+        getRepository: () => repo,
+        query: jest.fn().mockResolvedValue([]),
+      }),
   );
   return {
     service: new SpacesService(repo as unknown as Repository<SpaceEntity>),

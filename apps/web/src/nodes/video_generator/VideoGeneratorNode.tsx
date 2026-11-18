@@ -1,3 +1,4 @@
+import { CostButton } from '../../api/costs';
 import { useEffect, useState } from 'react';
 import {
   modelCatalog,
@@ -253,13 +254,14 @@ export function VideoGeneratorNode({
           <div className="run-error" role="alert">
             <span>{error}</span>
             {!warning && (
-              <button
+              <CostButton
+                nodeId={id}
                 aria-label={`Retry ${label}`}
                 disabled={!!busy}
                 onClick={() => void runNode(id)}
               >
                 Retry
-              </button>
+              </CostButton>
             )}
           </div>
         )}
@@ -282,16 +284,19 @@ export function VideoGeneratorNode({
             </button>
           )}
           {!busy && run && (
-            <button
+            <CostButton
+              nodeId={id}
+              force
               aria-label={`Force rerun ${label}`}
               disabled={!!warning}
               title={warning}
               onClick={() => void runNode(id, true)}
             >
               Force rerun
-            </button>
+            </CostButton>
           )}
-          <button
+          <CostButton
+            nodeId={id}
             className="run-button"
             aria-label={`Run ${label}`}
             disabled={!!busy || !!warning}
@@ -300,7 +305,7 @@ export function VideoGeneratorNode({
           >
             <Icon name="play" size={12} />
             Run
-          </button>
+          </CostButton>
         </div>
       </div>
     </NodeFrame>

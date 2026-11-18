@@ -1,3 +1,4 @@
+import { CostButton } from '../../api/costs';
 import { ModelControls } from '../../api/models';
 import { useRef, useState } from 'react';
 import { nodeRegistry } from '@hiveflow/shared';
@@ -123,24 +124,27 @@ export function ImageGeneratorNode({
           </button>
         )}
         {!busy && run && (
-          <button
+          <CostButton
+            nodeId={id}
+            force
             aria-label={`Force rerun Image Generator #${data.number}`}
             onClick={() => void runNode(id, true)}
           >
             Force rerun
-          </button>
+          </CostButton>
         )}
       </div>
       {error && (
         <div className="run-error nodrag nopan" role="alert">
           <span>{error}</span>
-          <button
+          <CostButton
+            nodeId={id}
             aria-label={`Retry Image Generator #${data.number}`}
             disabled={!!busy}
             onClick={() => void runNode(id)}
           >
             Retry
-          </button>
+          </CostButton>
         </div>
       )}
       <div className="generator-composer nodrag nopan">
@@ -259,7 +263,8 @@ export function ImageGeneratorNode({
               <option key={value}>{value}</option>
             ))}
           </select>
-          <button
+          <CostButton
+            nodeId={id}
             className="run-button"
             aria-label={`Run Image Generator #${data.number}`}
             disabled={!!busy}
@@ -267,7 +272,7 @@ export function ImageGeneratorNode({
           >
             <Icon name="play" size={12} />
             Run
-          </button>
+          </CostButton>
         </div>
       </div>
     </NodeFrame>

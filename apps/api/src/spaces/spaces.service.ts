@@ -1,3 +1,4 @@
+import { lockUsage, refundLockedRun, type LedgerRun } from '../usage/ledger';
 import {
   BadRequestException,
   ConflictException,
@@ -36,6 +37,11 @@ function document(space: SpaceEntity): SpaceDocument {
 
 @Injectable()
 export class SpacesService {
+  private executionCleanup?: (spaceId: string) => Promise<void>;
+  setExecutionCleanup(cleanup: (spaceId: string) => Promise<void>) {
+    this.executionCleanup = cleanup;
+  }
+
   constructor(
     @InjectRepository(SpaceEntity)
     private readonly spaces: Repository<SpaceEntity>,
@@ -129,7 +135,20 @@ export class SpacesService {
     });
   }
   async remove(user: User, id: string): Promise<void> {
-    const result = await this.spaces.delete({ id, userId: user.id });
-    if (!result.affected) throw new NotFoundException('Space not found');
+    await this.get(user, id);
+    await this.spaces.manager.transaction(async (manager) => {
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [id]);
+      await this.executionCleanup?.(id);
+      await lockUsage(manager, user.id);
+      const rows: LedgerRun[] = await manager.query(
+        "SELECT * FROM node_runs WHERE space_id=$1 AND status <> 'succeeded' AND cost_reserved=true AND cost_refunded=false FOR UPDATE",
+        [id],
+      );
+      for (const row of rows) await refundLockedRun(manager, row);
+      const result = await manager
+        .getRepository(SpaceEntity)
+        .delete({ id, userId: user.id });
+      if (!result.affected) throw new NotFoundException('Space not found');
+    });
   }
 }

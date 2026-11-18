@@ -1,3 +1,4 @@
+import { CostButton } from '../../api/costs';
 import { useState } from 'react';
 import { assistantPresets, nodeRegistry } from '@hiveflow/shared';
 import type { NodeProps } from '@xyflow/react';
@@ -107,13 +108,14 @@ export function AssistantNode({ id, data, selected }: NodeProps<CanvasNode>) {
         {error && (
           <div className="run-error" role="alert">
             <span>{error}</span>
-            <button
+            <CostButton
+              nodeId={id}
               aria-label={`Retry ${label}`}
               disabled={!!busy}
               onClick={() => void runNode(id)}
             >
               Retry
-            </button>
+            </CostButton>
           </div>
         )}
         <div className="assistant-result-header">
@@ -161,14 +163,17 @@ export function AssistantNode({ id, data, selected }: NodeProps<CanvasNode>) {
             </button>
           )}
           {!busy && run && (
-            <button
+            <CostButton
+              nodeId={id}
+              force
               aria-label={`Force rerun ${label}`}
               onClick={() => void runNode(id, true)}
             >
               Force rerun
-            </button>
+            </CostButton>
           )}
-          <button
+          <CostButton
+            nodeId={id}
             className="run-button"
             aria-label={`Run ${label}`}
             disabled={!!busy}
@@ -176,7 +181,7 @@ export function AssistantNode({ id, data, selected }: NodeProps<CanvasNode>) {
           >
             <Icon name="play" size={12} />
             Run
-          </button>
+          </CostButton>
         </div>
       </div>
     </NodeFrame>

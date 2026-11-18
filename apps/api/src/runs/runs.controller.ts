@@ -11,7 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { runRequestSchema } from '@hiveflow/shared';
+import { runRequestSchema, batchRunRequestSchema } from '@hiveflow/shared';
 import { CurrentUser, type User } from '../auth/current-user';
 import { SpacesService } from '../spaces/spaces.service';
 import { RunEvents } from './run-events';
@@ -46,10 +46,10 @@ export class RunsController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: unknown,
   ) {
-    const input = runRequestSchema.safeParse(body ?? {});
+    const input = batchRunRequestSchema.safeParse(body ?? {});
     if (!input.success)
       throw new BadRequestException('Expected { force?: boolean }');
-    return this.batches.start(user, id, input.data.force);
+    return this.batches.start(user, id, input.data.force, input.data);
   }
   @Get('batches') batchHistory(
     @CurrentUser() user: User,

@@ -1,4 +1,6 @@
 import { DataSource } from 'typeorm';
+import { CostsService } from './costs.service';
+import { CostsController, UsageController } from './costs.controller';
 import { MockVideoProvider } from '../providers/mock-video.provider';
 import { VideoGeneratorExecutor } from '../executors/video-generator.executor';
 import { Module } from '@nestjs/common';
@@ -39,9 +41,16 @@ import { ExecutorRegistry } from '../executors/executor-registry';
     TypeOrmModule.forFeature([NodeRunEntity, BatchEntity]),
     ThrottlerModule.forRoot(runRateLimit),
   ],
-  controllers: [RunsController, ExecutionController, ModelsController],
+  controllers: [
+    RunsController,
+    ExecutionController,
+    ModelsController,
+    CostsController,
+    UsageController,
+  ],
   providers: [
     RunsService,
+    CostsService,
     BatchesService,
     RunCache,
     ModelsService,
