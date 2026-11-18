@@ -20,7 +20,6 @@ import {
 } from '@xyflow/react';
 import { useStore } from 'zustand';
 import {
-  APP_NAME,
   portColors,
   validateConnection,
   connectionForNewNode,
@@ -36,6 +35,7 @@ import type { CanvasNode } from '../nodes/NodeFrame';
 import { Icon } from './Icons';
 import { NodePicker } from './NodePicker/NodePicker';
 import { nodeCatalog } from '../nodes/catalog';
+import { BrandLogo } from '../components/BrandLogo';
 
 const nodeTypes = Object.fromEntries(
   Object.values(nodePresentations).map((entry) => [
@@ -299,13 +299,7 @@ export function SpaceCanvas({
   return (
     <div className="space-app">
       <header className="app-header">
-        <a className="wordmark" href="/" aria-label="Hiveflow home">
-          <span className="brand-mark">
-            <Icon name="sparkles" size={17} />
-          </span>
-          {APP_NAME}
-          <span className="brand-dot">.</span>
-        </a>
+        <BrandLogo />
         <span className="header-divider" />
         <button
           className="header-breadcrumb"

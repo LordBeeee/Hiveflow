@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { spacesApi } from '../api/spaces';
 import { initialGraph } from '../store/graph';
 import { Icon } from '../canvas/Icons';
+import { BrandLogo } from '../components/BrandLogo';
 
 export function SpacesPage() {
   const queryClient = useQueryClient();
@@ -29,12 +30,7 @@ export function SpacesPage() {
   return (
     <div className="spaces-page">
       <header className="app-header">
-        <a className="wordmark" href="/">
-          <span className="brand-mark">
-            <Icon name="sparkles" size={17} />
-          </span>
-          Hiveflow<span className="brand-dot">.</span>
-        </a>
+        <BrandLogo />
         <span className="header-divider" />
         <span className="space-name">Spaces</span>
         <div className="header-end">

@@ -58,25 +58,17 @@ textarea:focus-visible {
 .wordmark {
   display: flex;
   align-items: center;
-  gap: 9px;
-  color: #eeeeea;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #fff;
   text-decoration: none;
-  font-size: 19px;
-  font-weight: 650;
-  letter-spacing: -0.6px;
 }
-.brand-mark {
-  display: grid;
-  place-items: center;
-  width: 29px;
-  height: 29px;
-  border-radius: 9px;
-  background: #c0d890;
-  color: #29311e;
-}
-.brand-dot {
-  color: #c0d890;
-  margin-left: -9px;
+.wordmark img {
+  display: block;
+  width: 156px;
+  height: 52px;
+  object-fit: contain;
 }
 .header-divider {
   height: 20px;
