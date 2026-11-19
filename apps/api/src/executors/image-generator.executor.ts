@@ -1,3 +1,4 @@
+import type { MediaInput } from '../providers/media-input';
 import { Injectable, Logger } from '@nestjs/common';
 import { imageGeneratorParamsSchema } from '@hiveflow/shared';
 import { AssetsService } from '../assets/assets.service';
@@ -27,7 +28,7 @@ export class ImageGeneratorExecutor implements NodeExecutor {
       throw new Error(
         'No prompt is available. Connect a non-empty Text node or enter a local prompt in this Image Generator.',
       );
-    const references: { url: string }[] = [];
+    const references: MediaInput[] = [];
     for (const reference of context.inputs?.ports.references ?? []) {
       if (reference.kind !== 'asset') continue;
       context.signal.throwIfAborted();

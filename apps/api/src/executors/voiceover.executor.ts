@@ -39,7 +39,7 @@ export class VoiceoverExecutor implements NodeExecutor {
       throw new Error(
         'Voiceover provider is not configured. Please choose another model.',
       );
-    validateModelParams(params, model);
+    validateModelParams({ ...params, script: text }, model);
     const result = await withProviderRetries(
       () =>
         (provider as TtsProvider).synthesize(

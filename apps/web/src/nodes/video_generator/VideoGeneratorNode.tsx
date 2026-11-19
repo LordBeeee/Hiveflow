@@ -59,10 +59,17 @@ export function VideoGeneratorNode({
   const endConnected = edges.some(
     (edge) => edge.target === id && edge.targetHandle === 'end_image',
   );
+  const startConnected = edges.some(
+    (edge) => edge.target === id && edge.targetHandle === 'start_image',
+  );
+  const adaptiveRatio =
+    startConnected && model?.capabilities.imageToVideoRatio === 'adaptive';
   const warning =
-    endConnected && model && !model.capabilities.supportsEndImage
-      ? `${model.label} does not support an end image. Disconnect it or choose another model.`
-      : undefined;
+    model?.capabilities.requiresStartImage && !startConnected
+      ? `${model.label} requires a start image.`
+      : endConnected && model && !model.capabilities.supportsEndImage
+        ? `${model.label} does not support an end image. Disconnect it or choose another model.`
+        : undefined;
   const error =
     warning ?? requestError ?? (run?.status === 'failed' ? run.error : null);
   const update = (patch: Record<string, unknown>) =>
@@ -119,6 +126,7 @@ export function VideoGeneratorNode({
         <textarea
           className="assistant-message nowheel"
           aria-label={`${label} prompt`}
+          maxLength={model?.capabilities.maxPromptChars}
           placeholder="Describe the scene you want to animate…"
           value={prompt}
           disabled={!!promptEdge}
@@ -175,6 +183,12 @@ export function VideoGeneratorNode({
             Aspect ratio
             <select
               aria-label={`${label} aspect ratio`}
+              disabled={adaptiveRatio}
+              title={
+                adaptiveRatio
+                  ? 'Aspect ratio follows the start image'
+                  : undefined
+              }
               value={params.aspectRatio}
               onChange={(event) => update({ aspectRatio: event.target.value })}
             >
@@ -210,7 +224,9 @@ export function VideoGeneratorNode({
             </select>
           </label>
         </div>
-        {model?.capabilities.supportsAudio && (
+        {(model?.capabilities.audio === 'toggle' ||
+          (!model?.capabilities.audio &&
+            model?.capabilities.supportsAudio)) && (
           <label className="video-audio">
             <input
               type="checkbox"

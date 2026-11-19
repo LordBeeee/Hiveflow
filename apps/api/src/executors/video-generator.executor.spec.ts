@@ -25,9 +25,11 @@ function setup(model = 'mock-video') {
   const registry = new ProviderRegistry();
   registry.register('video', 'mock-video', provider);
   const assets = {
-    providerReference: jest
-      .fn()
-      .mockResolvedValue({ url: 'https://private.example/signed' }),
+    providerReference: jest.fn().mockResolvedValue({
+      url: 'https://private.example/signed',
+      mime: 'image/png',
+      read: async () => Buffer.from('reference'),
+    }),
     store: jest.fn().mockResolvedValue({
       id: crypto.randomUUID(),
       url: '/api/assets/video',
@@ -91,7 +93,11 @@ it('checkpoints acceptance before polling and streams the result with progress',
   expect(provider.submit.mock.calls[0][0]).toMatchObject({
     prompt: 'Connected',
     requestId: context.runId,
-    startImage: { url: 'https://private.example/signed' },
+    startImage: {
+      url: 'https://private.example/signed',
+      mime: 'image/png',
+      read: expect.any(Function),
+    },
   });
   expect(assets.store.mock.calls[0][1]).toMatchObject({
     kind: 'video',

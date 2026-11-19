@@ -47,7 +47,14 @@ export class VideoGeneratorExecutor implements NodeExecutor {
         'Enter a prompt or connect non-empty Text or Assistant output before generating video.',
       );
     const { model, provider } = this.provider(params.model);
-    validateModelParams(params, model);
+    validateModelParams(
+      {
+        ...params,
+        prompt,
+        hasStartImage: !!context.inputs?.ports.start_image?.length,
+      },
+      model,
+    );
     if (
       context.inputs?.ports.end_image?.length &&
       !model.capabilities.supportsEndImage

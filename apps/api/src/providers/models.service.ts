@@ -78,6 +78,11 @@ export class ModelsService {
       throw new Error(`${model.label} does not support image input.`);
     if (inputs.ports.end_image?.length && !model.capabilities.supportsEndImage)
       throw new Error(`${model.label} does not support an end image.`);
+    if (
+      model.capabilities.requiresStartImage &&
+      !inputs.ports.start_image?.length
+    )
+      throw new Error(`${model.label} requires a start image.`);
     return {
       params: validateModelParams(params, model, imageCount),
       model: model.id,

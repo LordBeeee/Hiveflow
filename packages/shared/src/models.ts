@@ -11,6 +11,24 @@ export interface ModelOption {
   default: string | number | boolean;
 }
 export interface ModelCapabilities {
+  requiresStartImage?: boolean;
+  imageToVideoRatio?: 'adaptive';
+  maxPromptChars?: number;
+  maxImageMb?: number;
+  maxInputChars?: number;
+  supportsSpeed?: boolean;
+  speedValues?: readonly number[];
+  audio?: 'toggle' | 'included' | 'none';
+  imageFormats?: readonly string[];
+  minImagePixels?: number;
+  maxImagePixels?: number;
+  imageAspectRatio?: { min: number; max: number };
+  maxRequestMb?: number;
+  supportedParameters?: readonly string[];
+  speechFormat?: 'mp3' | 'pcm';
+  speechProvider?: 'elevenlabs' | 'google-ai-studio';
+  maxOutputTokens?: number;
+
   aspectRatios?: readonly string[];
   resolutions?: readonly string[];
   durations?: readonly number[];
@@ -309,7 +327,33 @@ export function validateModelParams(
       Number(params.speed ?? 1) > caps.speed.max)
   )
     throw new Error(`${model.label} does not support this speed.`);
-  if (params.generateAudio === true && !caps.supportsAudio)
+  if (
+    params.generateAudio === true &&
+    !caps.supportsAudio &&
+    !['toggle', 'included'].includes(caps.audio ?? '')
+  )
+    throw new Error(`${model.label} does not support generated audio.`);
+  if (caps.supportsSpeed === false && Number(params.speed ?? 1) !== 1)
+    throw new Error(`${model.label} does not support speed control.`);
+  if (caps.speedValues && !caps.speedValues.includes(Number(params.speed ?? 1)))
+    throw new Error(`${model.label} does not support this speed.`);
+  if (
+    caps.maxPromptChars &&
+    String(params.prompt ?? params.message ?? '').length > caps.maxPromptChars
+  )
+    throw new Error(
+      `${model.label} prompt exceeds ${caps.maxPromptChars} characters.`,
+    );
+  if (
+    caps.maxInputChars &&
+    String(params.script ?? params.text ?? '').length > caps.maxInputChars
+  )
+    throw new Error(
+      `${model.label} input exceeds ${caps.maxInputChars} characters.`,
+    );
+  if (caps.requiresStartImage && params.hasStartImage === false)
+    throw new Error(`${model.label} requires a start image.`);
+  if (caps.audio === 'none' && params.generateAudio === true)
     throw new Error(`${model.label} does not support generated audio.`);
   const raw = params.options ?? {};
   if (!raw || typeof raw !== 'object' || Array.isArray(raw))
@@ -385,8 +429,28 @@ export function coerceParamsForModel(
       'speed',
       Math.min(caps.speed.max, Math.max(caps.speed.min, Number(params.speed))),
     );
-  if (params.generateAudio === true && !caps.supportsAudio)
+  if (
+    params.generateAudio === true &&
+    !caps.supportsAudio &&
+    !['toggle', 'included'].includes(caps.audio ?? '')
+  )
     assign('generateAudio', false);
+  if (caps.supportsSpeed === false) assign('speed', 1);
+  else if (
+    caps.speedValues?.length &&
+    params.speed !== undefined &&
+    !caps.speedValues.includes(Number(params.speed))
+  )
+    assign(
+      'speed',
+      [...caps.speedValues].sort(
+        (a, b) =>
+          Math.abs(a - Number(params.speed)) -
+          Math.abs(b - Number(params.speed)),
+      )[0],
+    );
+  if (caps.audio === 'included') assign('generateAudio', true);
+  if (caps.audio === 'none') assign('generateAudio', false);
   return { params: result, notices };
 }
 const optionSchema = z.object({
@@ -407,6 +471,23 @@ export const availableModelSchema = z.object({
   status: z.enum(['active', 'deprecated', 'removed']),
   aliases: z.string().array().optional(),
   capabilities: z.object({
+    requiresStartImage: z.boolean().optional(),
+    imageToVideoRatio: z.literal('adaptive').optional(),
+    maxPromptChars: z.number().positive().optional(),
+    maxImageMb: z.number().positive().optional(),
+    maxInputChars: z.number().positive().optional(),
+    supportsSpeed: z.boolean().optional(),
+    speedValues: z.number().array().optional(),
+    audio: z.enum(['toggle', 'included', 'none']).optional(),
+    imageFormats: z.string().array().optional(),
+    minImagePixels: z.number().positive().optional(),
+    maxImagePixels: z.number().positive().optional(),
+    imageAspectRatio: z.object({ min: z.number(), max: z.number() }).optional(),
+    maxRequestMb: z.number().positive().optional(),
+    supportedParameters: z.string().array().optional(),
+    speechFormat: z.enum(['mp3', 'pcm']).optional(),
+    speechProvider: z.enum(['elevenlabs', 'google-ai-studio']).optional(),
+    maxOutputTokens: z.number().int().positive().optional(),
     aspectRatios: z.string().array().optional(),
     resolutions: z.string().array().optional(),
     durations: z.number().array().optional(),
@@ -427,3 +508,27 @@ export const availableModelSchema = z.object({
   unavailableReason: z.string().optional(),
   isDefault: z.boolean(),
 });
+
+// Discovery allowlist from the integration brief; never runtime catalog entries.
+export const openrouterImageCandidates: readonly string[] = [
+  'bytedance-seed/seedream-5-0-pro',
+  'bytedance-seed/seedream-5-0-flash',
+  'bytedance-seed/seedream-5-0-lite',
+  'bytedance-seed/seedream-4.5',
+  'openai/gpt-image-2.5-sunburst',
+  'openai/gpt-image-2.5-flare',
+  'openai/gpt-image-2',
+  'openai/gpt-5.4-image-2',
+  'openai/gpt-5-image',
+  'openai/gpt-5-image-mini',
+  'openai/gpt-image-1',
+  'openai/gpt-image-1-mini',
+  'google/gemini-nano-banana-2.1',
+  'google/gemini-3.1-flash-lite-image',
+  'google/gemini-3.1-flash-image',
+  'google/gemini-3-pro-image',
+  'google/gemini-3.1-flash-image-preview',
+  'google/gemini-3-pro-image-preview',
+  'google/gemini-2.5-flash-image',
+  'GET /images/models',
+];

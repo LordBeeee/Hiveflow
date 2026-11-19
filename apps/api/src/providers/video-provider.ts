@@ -1,3 +1,4 @@
+import type { MediaInput } from './media-input';
 import type { Readable } from 'node:stream';
 export interface VideoRequest {
   requestId: string;
@@ -7,8 +8,8 @@ export interface VideoRequest {
   aspectRatio: string;
   resolution: string;
   generateAudio: boolean;
-  startImage?: { url: string };
-  endImage?: { url: string };
+  startImage?: MediaInput;
+  endImage?: MediaInput;
   options?: Record<string, string | number | boolean>;
 }
 export interface VideoProvider {

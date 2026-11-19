@@ -37,7 +37,7 @@ export function VoiceoverNode({ id, data, selected }: NodeProps<CanvasNode>) {
     data.graphNode.params,
   );
   const models = useModels('tts');
-  let model;
+  let model: ReturnType<typeof selectModel> | undefined;
   try {
     model = selectModel(params.model, 'tts', models.data ?? []);
   } catch {
@@ -78,7 +78,7 @@ export function VoiceoverNode({ id, data, selected }: NodeProps<CanvasNode>) {
         <textarea
           className="assistant-message nowheel"
           aria-label={`${label} script`}
-          maxLength={5000}
+          maxLength={Math.min(5000, model?.capabilities.maxInputChars ?? 5000)}
           placeholder="Write the script you want to narrate…"
           value={script}
           disabled={!!scriptEdge}
@@ -148,11 +148,34 @@ export function VoiceoverNode({ id, data, selected }: NodeProps<CanvasNode>) {
             className="nodrag"
             aria-label={`${label} speed`}
             type="range"
-            min={model?.capabilities.speed?.min ?? 0.75}
-            max={model?.capabilities.speed?.max ?? 1.5}
-            step={0.05}
-            value={params.speed}
-            onChange={(event) => update({ speed: Number(event.target.value) })}
+            disabled={model?.capabilities.supportsSpeed === false}
+            min={
+              model?.capabilities.speedValues
+                ? 0
+                : (model?.capabilities.speed?.min ?? 0.75)
+            }
+            max={
+              model?.capabilities.speedValues
+                ? model.capabilities.speedValues.length - 1
+                : (model?.capabilities.speed?.max ?? 1.5)
+            }
+            step={model?.capabilities.speedValues ? 1 : 0.05}
+            value={
+              model?.capabilities.speedValues
+                ? Math.max(
+                    0,
+                    model.capabilities.speedValues.indexOf(params.speed),
+                  )
+                : params.speed
+            }
+            onChange={(event) =>
+              update({
+                speed:
+                  model?.capabilities.speedValues?.[
+                    Number(event.target.value)
+                  ] ?? Number(event.target.value),
+              })
+            }
           />
         </label>
         <div className="execution-status">

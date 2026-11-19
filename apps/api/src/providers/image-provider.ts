@@ -1,6 +1,7 @@
+import type { MediaInput } from './media-input';
 export interface ImageRequest {
   prompt: string;
-  references: { url: string }[];
+  references: MediaInput[];
   count: number;
   aspectRatio: string;
   resolution: '1K' | '2K' | '4K';

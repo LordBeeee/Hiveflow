@@ -315,7 +315,25 @@ export class AssetsService {
       throw new Error(
         'A reference image is unavailable. Upload or run its upstream node again.',
       );
-    return { url: await this.storage.signedUrl(asset.storageKey) };
+    return {
+      url: await this.storage.signedUrl(asset.storageKey),
+      mime: asset.mime,
+      read: async () => {
+        const stream = await this.storage.get(asset.storageKey);
+        const chunks: Buffer[] = [];
+        let size = 0;
+        for await (const chunk of stream) {
+          const bytes = Buffer.from(chunk as Uint8Array);
+          size += bytes.length;
+          if (size > asset.sizeBytes) {
+            stream.destroy();
+            throw new Error('Reference image exceeds its stored size');
+          }
+          chunks.push(bytes);
+        }
+        return Buffer.concat(chunks);
+      },
+    };
   }
   async metadata(user: User, id: string): Promise<Asset> {
     return dto(await this.owned(user, id));

@@ -1,3 +1,4 @@
+import type { MediaInput } from '../providers/media-input';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -57,7 +58,7 @@ export class AssistantExecutor implements NodeExecutor {
         `${model.label} does not support image input. Choose a vision model or disconnect images.`,
       );
     validateModelParams(params, model, images.length);
-    const references: { url: string }[] = [];
+    const references: MediaInput[] = [];
     for (const image of images) {
       context.signal.throwIfAborted();
       references.push(

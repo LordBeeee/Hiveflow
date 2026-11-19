@@ -10,9 +10,11 @@ function setup(model = 'mock-llm') {
   const registry = new ProviderRegistry();
   registry.register('llm', 'mock', { id: 'mock', ...{ complete } });
   const assets = {
-    providerReference: jest
-      .fn()
-      .mockResolvedValue({ url: 'https://storage.example/private' }),
+    providerReference: jest.fn().mockResolvedValue({
+      url: 'https://storage.example/private',
+      mime: 'image/png',
+      read: async () => Buffer.from('reference'),
+    }),
   };
   const executor = new AssistantExecutor(
     assets as unknown as AssetsService,
@@ -54,7 +56,13 @@ it('keeps ordered context followed by local message, uses preset and signs image
       {
         role: 'user',
         text: 'first\n\nsecond\n\nlocal',
-        images: [{ url: 'https://storage.example/private' }],
+        images: [
+          {
+            url: 'https://storage.example/private',
+            mime: 'image/png',
+            read: expect.any(Function),
+          },
+        ],
       },
     ],
     model: 'mock-llm',

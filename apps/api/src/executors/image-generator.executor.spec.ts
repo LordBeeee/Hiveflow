@@ -6,9 +6,11 @@ import type { ImageProvider } from '../providers/image-provider';
 
 function setup() {
   const assets = {
-    providerReference: jest
-      .fn()
-      .mockResolvedValue({ url: 'https://storage.example/signed' }),
+    providerReference: jest.fn().mockResolvedValue({
+      url: 'https://storage.example/signed',
+      mime: 'image/png',
+      read: async () => Buffer.from('reference'),
+    }),
     store: jest.fn().mockResolvedValue({
       id: 'asset',
       url: '/api/assets/asset',
@@ -58,7 +60,13 @@ it('uses resolved prompt and fresh signed references when calling the provider',
   );
   expect(generate.mock.calls[0][0]).toMatchObject({
     prompt: 'connected',
-    references: [{ url: 'https://storage.example/signed' }],
+    references: [
+      {
+        url: 'https://storage.example/signed',
+        mime: 'image/png',
+        read: expect.any(Function),
+      },
+    ],
   });
 });
 it('uses local prompt after disconnect, and rejects missing prompt before the provider call', async () => {

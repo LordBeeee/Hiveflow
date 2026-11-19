@@ -1,9 +1,10 @@
+import type { MediaInput } from './media-input';
 export interface LlmRequest {
   system: string;
   messages: {
     role: 'user' | 'assistant';
     text: string;
-    images?: { url: string }[];
+    images?: MediaInput[];
   }[];
   model: string;
   maxTokens: number;

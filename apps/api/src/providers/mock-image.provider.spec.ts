@@ -24,7 +24,13 @@ describe('MockImageProvider', () => {
       {
         ...request,
         count: 1,
-        references: [{ url: 'https://storage.example/a?signature=1' }],
+        references: [
+          {
+            url: 'https://storage.example/a?signature=1',
+            mime: 'image/png',
+            read: async () => Buffer.from('reference'),
+          },
+        ],
       },
       signal,
     );
@@ -32,7 +38,13 @@ describe('MockImageProvider', () => {
       {
         ...request,
         count: 1,
-        references: [{ url: 'https://storage.example/a?signature=2' }],
+        references: [
+          {
+            url: 'https://storage.example/a?signature=2',
+            mime: 'image/png',
+            read: async () => Buffer.from('reference'),
+          },
+        ],
       },
       signal,
     );
@@ -46,7 +58,13 @@ describe('MockImageProvider', () => {
       {
         ...request,
         count: 1,
-        references: [{ url: 'https://storage.example/a' }],
+        references: [
+          {
+            url: 'https://storage.example/a',
+            mime: 'image/png',
+            read: async () => Buffer.from('reference'),
+          },
+        ],
       },
       signal,
     );
@@ -64,7 +82,13 @@ describe('MockImageProvider', () => {
       provider.generate(
         {
           ...request,
-          references: [{ url: 'https://storage.example/missing' }],
+          references: [
+            {
+              url: 'https://storage.example/missing',
+              mime: 'image/png',
+              read: async () => Buffer.from('reference'),
+            },
+          ],
         },
         new AbortController().signal,
       ),

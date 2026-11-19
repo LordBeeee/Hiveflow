@@ -128,7 +128,7 @@ The optional Vite development server proxies `/health` and `/api/*` to port 3000
 - `SPACES_PLAN.md`: phase acceptance criteria and remaining prototype scope.
 - `NODES_PLAN.md`: continuation for node picker, platform generalization and additional media nodes.
 
-Phases 0–10 and Phase 11.1 (cost guards) are implemented. Phase 11.2 (real adapters) awaits the existing KlingService/Seedance client and the selected LLM/TTS providers. See `docs/PHASE_3_CHECKS.md` through `docs/PHASE_10_CHECKS.md` for verification evidence. The default provider remains a mock. Production work includes real authentication, shared event/rate-limit infrastructure for multiple API replicas and orphan-object cleanup.
+Phases 0–10 and Phase 11.1 (cost guards) are implemented. Phase 11.2 introduces fresh provider adapters in steps: shared groundwork, OpenRouter, then Seedance/Kling; Veo is optional. See `docs/PHASE_3_CHECKS.md` through `docs/PHASE_10_CHECKS.md` for verification evidence. The default provider remains a mock. Production work includes real authentication, shared event/rate-limit infrastructure for multiple API replicas and orphan-object cleanup.
 
 ## Models and platform (Phase 7)
 
@@ -215,4 +215,4 @@ Image credits are catalog rate × image count × resolution factor (1K: 1, 2K: 2
 
 PostgreSQL records reserve, adjustment and refund entries. Admission and reservations commit together under a per-user lock, including concurrent daily-limit checks. Failure/cancel refunds are idempotent and reconciliation repairs interrupted refunds. Refunds apply to the original UTC budget day. Removing a workflow cancels/refunds active work and retains completed usage audit IDs. Existing runs from earlier phases keep their historical zero mock cost. The deployment still assumes one API instance.
 
-Phase 11.2 remains pending: supply paths to the existing Video AI application's `KlingService` and Seedance client, and name one LLM and one TTS provider. The plan requires porting that existing video request/poll logic. No paid adapters, credentials, recorded vendor fixtures or live-check claims have been added. See `docs/PHASE_11_CHECKS.md`.
+Phase 11.2 is a rewrite based on official provider documentation. Shared groundwork is implemented; OpenRouter integration follows, with catalog entries deferred until the user runs `node scripts/dump-openrouter-models.mjs` (after `npm run build -w @hiveflow/shared`) and chooses IDs. Defaults remain mocks; no billable calls are made by tests or CI. Seedance/Kling and optional Veo remain later steps. See `docs/PHASE_11_2_CHECKS.md`.
