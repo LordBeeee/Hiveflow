@@ -18,13 +18,19 @@ const { default: errors } =
   await import('../apps/api/dist/providers/openrouter-error.js');
 const selected = ['llm', 'image', 'tts'].map((kind) => {
   const id = process.env[`DEFAULT_${kind.toUpperCase()}_MODEL`];
-  const model = shared.modelCatalog.find(
+  const candidates = shared.modelCatalog.filter(
     (row) =>
       row.kind === kind &&
       row.provider === 'openrouter' &&
-      row.status !== 'removed' &&
-      (!id || row.id === id),
+      row.status !== 'removed',
   );
+  const configuredDefault = id ? shared.findModel(id) : undefined;
+  const model =
+    configuredDefault?.provider === 'openrouter'
+      ? candidates.find((row) => row.id === configuredDefault.id)
+      : !id || configuredDefault
+        ? candidates[0]
+        : undefined;
   if (!model) {
     console.error(
       `Choose and add an OpenRouter ${kind} catalog model first; set DEFAULT_${kind.toUpperCase()}_MODEL to select it.`,

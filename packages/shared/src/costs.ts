@@ -20,11 +20,16 @@ export function estimateModelUnits(
   const base = Math.round(model.costUnits * 1000);
   let milli = base;
   if (model.kind === 'image')
-    milli *=
-      Number(params.count ?? 1) *
-      (({ '1K': 1, '2K': 2, '4K': 4 } as Record<string, number>)[
-        String(params.resolution)
-      ] ?? 1);
+    milli = Math.ceil(
+      base *
+        Number(params.count ?? 1) *
+        ((
+          { '512': 0.5, '1K': 1, '1.5K': 1.5, '2K': 2, '4K': 4 } as Record<
+            string,
+            number
+          >
+        )[String(params.resolution)] ?? 1),
+    );
   if (model.kind === 'video')
     milli *=
       Number(params.duration ?? 5) * (params.resolution === '1080p' ? 2 : 1);

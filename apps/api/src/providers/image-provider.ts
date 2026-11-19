@@ -5,7 +5,7 @@ export interface ImageRequest {
   references: MediaInput[];
   count: number;
   aspectRatio: string;
-  resolution: '1K' | '2K' | '4K';
+  resolution: string;
   model: string;
   options?: Record<string, string | number | boolean>;
 }

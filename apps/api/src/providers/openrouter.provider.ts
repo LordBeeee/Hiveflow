@@ -87,7 +87,10 @@ export class OpenRouterLlmProvider implements LlmProvider {
     const body = {
       model: request.model,
       stream: false,
-      max_tokens: request.maxTokens,
+      max_tokens: Math.min(
+        request.maxTokens,
+        model.capabilities.maxOutputTokens ?? request.maxTokens,
+      ),
       messages,
     };
     validateRequestSize(body, model.capabilities);
@@ -274,22 +277,8 @@ export class OpenRouterTtsProvider implements TtsProvider {
         options: { elevenlabs: { voice_settings: { speed: request.speed } } },
       };
     }
-    if (caps.speechProvider === 'google-ai-studio') {
-      // The cap is explicit catalog data, never an invented text-to-audio token formula.
-      if (
-        !Number.isInteger(caps.maxOutputTokens) ||
-        !caps.maxOutputTokens ||
-        caps.maxOutputTokens <= 0
-      )
-        invalid(
-          'Google speech requires a verified output-token cap in the catalog.',
-        );
-      body.provider = {
-        options: {
-          'google-ai-studio': { maxOutputTokens: caps.maxOutputTokens },
-        },
-      };
-    }
+    // Google uses the documented standard speech request. The current OpenRouter
+    // guide does not require a maxOutputTokens passthrough; upstream caps stay catalog metadata.
     validateRequestSize(body, caps);
     const { data: bytes, headers } = await this.http.post<Buffer>(
       '/audio/speech',

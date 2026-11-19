@@ -33,6 +33,8 @@ jobs:
           FFMPEG_BIN: /bin/true
       - run: npm run build
       - run: node apps/api/scripts/check-provider-audio.mjs
+      - run: node apps/api/scripts/check-openrouter-catalog.mjs
+      - run: node scripts/check-openrouter-live-check.mjs
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test

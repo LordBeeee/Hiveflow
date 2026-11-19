@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { PortType } from '../types';
 import type { RunOutput } from '../media';
-import type { ModelKind } from '../models';
+import { imageAspectRatios, imageResolutions, type ModelKind } from '../models';
 import { ASSISTANT_PRESETS_VERSION } from '../assistant-presets';
 export type NodeCategory = 'Image' | 'Video' | 'Audio' | 'Text' | 'Utilities';
 
@@ -38,8 +38,8 @@ export const imageGeneratorParamsSchema = z
     prompt: z.string(),
     count: z.number().int().min(1).max(4),
     model: z.string().min(1),
-    aspectRatio: z.enum(['1:1', '16:9', '9:16', '4:3', '3:4']),
-    resolution: z.enum(['1K', '2K', '4K']),
+    aspectRatio: z.enum(imageAspectRatios),
+    resolution: z.enum(imageResolutions),
     options: z
       .record(
         z.string(),
@@ -77,7 +77,7 @@ export const voiceoverParamsSchema = z
     language: z.string().min(1),
     speed: z
       .number()
-      .min(0.75)
+      .min(0.7)
       .max(1.5)
       .refine(
         (value) => Math.abs(value * 20 - Math.round(value * 20)) < 1e-8,

@@ -1,5 +1,10 @@
 import { ConfigService } from '@nestjs/config';
-import { type ModelDefinition } from '@hiveflow/shared';
+import {
+  findModel,
+  nodeRegistry,
+  coerceParamsForModel,
+  type ModelDefinition,
+} from '@hiveflow/shared';
 import sharp from 'sharp';
 import { ProviderHttp } from './provider-http';
 import { ProviderRegistry } from './provider-registry';
@@ -336,7 +341,7 @@ it('omits speed settings on models without control', async () => {
     provider.synthesize({ ...request, speed: 1.1 }, signal),
   ).rejects.toMatchObject({ code: 'invalid_request' });
 });
-it('requires a catalog token cap for Google and wraps returned PCM as WAV', async () => {
+it('uses the documented Google speech body and wraps returned PCM as WAV', async () => {
   const c = client(
     new Response(Buffer.alloc(48000), {
       headers: { 'content-type': 'audio/pcm;rate=24000;channels=1' },
@@ -366,18 +371,12 @@ it('requires a catalog token cap for Google and wraps returned PCM as WAV', asyn
   );
   expect(result.durationMs).toBe(1000);
   expect(result.mime).toBe('audio/wav');
-  expect(c.body()).toMatchObject({
+  expect(c.body()).toEqual({
+    model: 'fixture',
+    input: 'Hi',
+    voice: 'Kore',
     response_format: 'pcm',
-    provider: { options: { 'google-ai-studio': { maxOutputTokens: 1000 } } },
   });
-  await expect(
-    new OpenRouterTtsProvider(c.http, [
-      {
-        ...model,
-        capabilities: { ...model.capabilities, maxOutputTokens: undefined },
-      },
-    ]).synthesize(request, signal),
-  ).rejects.toMatchObject({ code: 'invalid_request' });
 });
 
 it('sends only supported image options and lets explicit pixel size override ratio/tier', async () => {
@@ -449,5 +448,79 @@ it('sends only supported image options and lets explicit pixel size override rat
     size: '1024x1024',
     quality: 'high',
     output_format: 'png',
+  });
+});
+
+it('caps a chat request to the selected model output limit', async () => {
+  const c = client(json({ choices: [{ message: { content: 'ok' } }] }));
+  await new OpenRouterLlmProvider(c.http, [
+    { ...base, capabilities: { maxOutputTokens: 4096 } },
+  ]).complete(
+    {
+      model: 'fixture',
+      system: '',
+      messages: [{ role: 'user', text: 'Hi' }],
+      maxTokens: 6000,
+    },
+    signal,
+  );
+  expect(c.body().max_tokens).toBe(4096);
+});
+
+it('executes chosen production catalog rows through the adapter contracts', async () => {
+  const bytes = await sharp({
+    create: { width: 2, height: 2, channels: 3, background: 'red' },
+  })
+    .png()
+    .toBuffer();
+  const image = findModel('bytedance-seed/seedream-5-0-pro')!;
+  const params = coerceParamsForModel(
+    'image_generator',
+    { ...nodeRegistry.image_generator.defaultParams },
+    image,
+  ).params;
+  const c = client(json({ data: [{ b64_json: bytes.toString('base64') }] }));
+  await new OpenRouterImageProvider(c.http).generate(
+    {
+      model: image.providerModelId,
+      prompt: 'test',
+      count: 1,
+      aspectRatio: '21:9',
+      resolution: '1.5K',
+      references: [],
+      options: params.options as Record<string, string | number | boolean>,
+    },
+    signal,
+  );
+  expect(c.body()).toEqual({
+    model: image.providerModelId,
+    prompt: 'test',
+    n: 1,
+    aspect_ratio: '21:9',
+    resolution: '1.5K',
+    output_format: 'png',
+    seed: 0,
+  });
+  const tts = client(
+    new Response(Buffer.alloc(48000), {
+      headers: { 'content-type': 'audio/pcm;rate=24000;channels=1' },
+    }),
+  );
+  const result = await new OpenRouterTtsProvider(tts.http).synthesize(
+    {
+      model: 'google/gemini-3.1-flash-tts-preview',
+      text: 'Hello',
+      voice: 'Kore',
+      speed: 1,
+      language: 'auto',
+    },
+    signal,
+  );
+  expect(result).toMatchObject({ mime: 'audio/wav', durationMs: 1000 });
+  expect(tts.body()).toEqual({
+    model: 'google/gemini-3.1-flash-tts-preview',
+    input: 'Hello',
+    voice: 'Kore',
+    response_format: 'pcm',
   });
 });

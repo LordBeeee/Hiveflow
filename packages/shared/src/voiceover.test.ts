@@ -14,7 +14,7 @@ it('bounds scripts and speed including its 0.05 step while permitting model-agno
   ).toBe(true);
   for (const patch of [
     { script: 'x'.repeat(5001) },
-    { speed: 0.7 },
+    { speed: 0.65 },
     { speed: 1.55 },
     { speed: 1.12 },
   ])

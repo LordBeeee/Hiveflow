@@ -98,9 +98,11 @@ export function ModelControls({
                   {model.label}
                   {!model.available
                     ? ` — ${model.unavailableReason}`
-                    : model.status === 'deprecated'
-                      ? ' (deprecated)'
-                      : ''}
+                    : model.status === 'preview'
+                      ? ' (preview)'
+                      : model.status === 'deprecated'
+                        ? ' (deprecated)'
+                        : ''}
                 </option>
               ))}
           </optgroup>

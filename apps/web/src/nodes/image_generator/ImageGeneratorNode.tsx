@@ -259,7 +259,7 @@ export function ImageGeneratorNode({
             <span aria-label="Image count">x{count}</span>
             <button
               aria-label="Increase image count"
-              disabled={count === 4}
+              disabled={count >= Math.min(4, model?.capabilities.maxCount ?? 4)}
               onClick={() => update({ count: count + 1 })}
             >
               +
@@ -270,17 +270,60 @@ export function ImageGeneratorNode({
             value={aspectRatio}
             onChange={(event) => update({ aspectRatio: event.target.value })}
           >
-            {['1:1', '16:9', '9:16', '4:3', '3:4'].map((value) => (
-              <option key={value}>{value}</option>
+            {[
+              ...new Set([
+                ...(model?.capabilities.aspectRatios ?? [
+                  '1:1',
+                  '16:9',
+                  '9:16',
+                  '4:3',
+                  '3:4',
+                ]),
+                aspectRatio,
+              ]),
+            ].map((value) => (
+              <option
+                key={value}
+                disabled={
+                  !!model && !model.capabilities.aspectRatios?.includes(value)
+                }
+              >
+                {value}
+              </option>
             ))}
           </select>
           <select
             aria-label="Resolution"
+            disabled={
+              !!model?.capabilities.supportedParameters &&
+              !model.capabilities.supportedParameters.includes('resolution')
+            }
+            title={
+              model?.capabilities.supportedParameters &&
+              !model.capabilities.supportedParameters.includes('resolution')
+                ? 'This model chooses its output dimensions from aspect ratio and quality.'
+                : undefined
+            }
             value={resolution}
             onChange={(event) => update({ resolution: event.target.value })}
           >
-            {['1K', '2K', '4K'].map((value) => (
-              <option key={value}>{value}</option>
+            {[
+              ...new Set([
+                ...(model?.capabilities.resolutions ?? ['1K', '2K', '4K']),
+                resolution,
+              ]),
+            ].map((value) => (
+              <option
+                key={value}
+                disabled={
+                  !!model && !model.capabilities.resolutions?.includes(value)
+                }
+              >
+                {model?.capabilities.supportedParameters &&
+                !model.capabilities.supportedParameters.includes('resolution')
+                  ? 'Provider default'
+                  : value}
+              </option>
             ))}
           </select>
           <CostButton

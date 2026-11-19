@@ -22,7 +22,15 @@ export function mockDimensions(
   resolution: ImageRequest['resolution'],
 ) {
   const [a, b] = aspectRatio.split(':').map(Number);
-  const size = { '1K': 1024, '2K': 2048, '4K': 4096 }[resolution];
+  const size = (
+    { '1K': 1024, '2K': 2048, '4K': 4096 } as Record<string, number>
+  )[resolution];
+  if (!size)
+    throw new ProviderError(
+      'invalid_request',
+      false,
+      'Mock images support 1K, 2K or 4K.',
+    );
   return {
     width: Math.round((size * a) / Math.max(a, b)),
     height: Math.round((size * b) / Math.max(a, b)),
