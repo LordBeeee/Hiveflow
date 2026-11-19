@@ -32,7 +32,8 @@ export function estimateModelUnits(
     );
   if (model.kind === 'video')
     milli *=
-      Number(params.duration ?? 5) * (params.resolution === '1080p' ? 2 : 1);
+      Number(params.duration ?? 5) *
+      (params.resolution === '4k' ? 4 : params.resolution === '1080p' ? 2 : 1);
   if (model.kind === 'tts') {
     const connected = inputs.ports.script?.[0];
     const text =

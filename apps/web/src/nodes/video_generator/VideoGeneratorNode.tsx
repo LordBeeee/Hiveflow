@@ -6,6 +6,8 @@ import {
   selectModel,
   type NodeDef,
   type AvailableModel,
+  videoAspectRatios,
+  videoResolutions,
 } from '@hiveflow/shared';
 import type { NodeProps } from '@xyflow/react';
 import { ModelControls, useModels } from '../../api/models';
@@ -69,7 +71,11 @@ export function VideoGeneratorNode({
       ? `${model.label} requires a start image.`
       : endConnected && model && !model.capabilities.supportsEndImage
         ? `${model.label} does not support an end image. Disconnect it or choose another model.`
-        : undefined;
+        : endConnected &&
+            !startConnected &&
+            model?.capabilities.endImageRequiresStart
+          ? 'Connect a start image before using an end image.'
+          : undefined;
   const error =
     warning ?? requestError ?? (run?.status === 'failed' ? run.error : null);
   const update = (patch: Record<string, unknown>) =>
@@ -195,16 +201,19 @@ export function VideoGeneratorNode({
               {adaptiveRatio && (
                 <option value="adaptive">Auto (start image)</option>
               )}
-              {['16:9', '9:16', '1:1'].map((value) => (
-                <option
-                  key={value}
-                  disabled={
-                    !!model && !model.capabilities.aspectRatios?.includes(value)
-                  }
-                >
-                  {value}
-                </option>
-              ))}
+              {videoAspectRatios
+                .filter((value) => !adaptiveRatio || value !== 'adaptive')
+                .map((value) => (
+                  <option
+                    key={value}
+                    disabled={
+                      !!model &&
+                      !model.capabilities.aspectRatios?.includes(value)
+                    }
+                  >
+                    {value}
+                  </option>
+                ))}
             </select>
           </label>
           <label>
@@ -214,7 +223,7 @@ export function VideoGeneratorNode({
               value={params.resolution}
               onChange={(event) => update({ resolution: event.target.value })}
             >
-              {['720p', '1080p'].map((value) => (
+              {videoResolutions.map((value) => (
                 <option
                   key={value}
                   disabled={
@@ -241,6 +250,17 @@ export function VideoGeneratorNode({
             />
             Generate audio
           </label>
+        )}
+        {model?.capabilities.rejectsRealPeople && (
+          <p className="model-warning">
+            This model does not accept images containing real people.
+          </p>
+        )}
+        {model?.provider === 'seedance' && (
+          <p className="model-warning">
+            Cancel stops local processing. A task already running at the
+            provider may still be billed.
+          </p>
         )}
         <div className="execution-status">
           {stale && <span className="stale-badge">Stale · inputs changed</span>}
@@ -284,7 +304,7 @@ export function VideoGeneratorNode({
             )}
           </div>
         )}
-        {video && (
+        {video && run?.provider === 'mock-video' && (
           <p className="voiceover-mock">
             Mock fixture · 2 s, 320×180, silent. Settings and references
             exercise the workflow; no AI video synthesis.

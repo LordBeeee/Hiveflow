@@ -83,8 +83,19 @@ export class ModelsService {
       !inputs.ports.start_image?.length
     )
       throw new Error(`${model.label} requires a start image.`);
+    if (
+      model.capabilities.endImageRequiresStart &&
+      inputs.ports.end_image?.length &&
+      !inputs.ports.start_image?.length
+    )
+      throw new Error('Connect a start image before using an end image.');
+    const validation = {
+      ...params,
+      hasStartImage: !!inputs.ports.start_image?.length,
+    };
+    const validated = validateModelParams(validation, model, imageCount);
     return {
-      params: validateModelParams(params, model, imageCount),
+      params: { ...params, model: model.id, options: validated.options },
       model: model.id,
       provider: model.provider,
     };

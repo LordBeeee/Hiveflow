@@ -86,6 +86,11 @@ export function validateEnvironment(
   return {
     ...env,
     HIVEFLOW_LIVE_CHECK: liveCheck ?? '0',
+    ARK_API_KEY: optionalText('ARK_API_KEY'),
+    ARK_BASE_URL: httpUrl(
+      'ARK_BASE_URL',
+      'https://ark.ap-southeast.bytepluses.com/api/v3',
+    ),
     OPENROUTER_API_KEY: optionalText('OPENROUTER_API_KEY'),
     OPENROUTER_APP_NAME: optionalText('OPENROUTER_APP_NAME'),
     OPENROUTER_APP_URL: httpUrl('OPENROUTER_APP_URL'),

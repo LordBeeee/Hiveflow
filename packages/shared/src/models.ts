@@ -15,6 +15,10 @@ export interface ModelCapabilities {
   requiresStartImage?: boolean;
   imageToVideoRatio?: 'adaptive';
   maxPromptChars?: number;
+  supportsDraft?: boolean;
+  executionExpiresAfter?: number;
+  rejectsRealPeople?: boolean;
+  endImageRequiresStart?: boolean;
   maxImageMb?: number;
   maxInputChars?: number;
   supportsSpeed?: boolean;
@@ -4042,6 +4046,141 @@ export const imageAspectRatios = [
 ] as const;
 export const imageResolutions = ['512', '1K', '1.5K', '2K', '4K'] as const;
 
+export const seedanceCatalog: readonly ModelDefinition[] = [
+  {
+    id: 'seedance-2-0',
+    kind: 'video',
+    provider: 'seedance',
+    providerModelId: 'dreamina-seedance-2-0-260128',
+    label: 'Seedance 2.0',
+    status: 'active',
+    capabilities: {
+      requiresStartImage: false,
+      supportsEndImage: true,
+      endImageRequiresStart: true,
+      audio: 'toggle',
+      supportsAudio: true,
+      resolutions: ['480p', '720p', '1080p', '4k'],
+      durations: Array.from({ length: 12 }, (_, i) => i + 4),
+      aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9', 'adaptive'],
+      maxPromptChars: 2500,
+      maxImageMb: 10,
+      maxRequestMb: 64,
+      imageFormats: [
+        'image/png',
+        'image/jpeg',
+        'image/webp',
+        'image/tiff',
+        'image/gif',
+      ],
+      minImagePixels: 300,
+      maxImagePixels: 6000,
+      imageAspectRatio: { min: 0.4, max: 2.5 },
+      maxReferences: 2,
+      rejectsRealPeople: true,
+      executionExpiresAfter: 3600,
+      supportsDraft: false,
+    },
+    options: [],
+    costUnits: 7,
+    pricing: {
+      source: 'https://docs.byteplus.com/en/docs/modelark/model-pricing',
+      checkedAt: '2026-11-19',
+      rates: [
+        {
+          billable: 'output_video',
+          unit: 'token',
+          costUsd: 0.000007,
+          variant: '480p/720p',
+        },
+        {
+          billable: 'output_video',
+          unit: 'token',
+          costUsd: 0.0000077,
+          variant: '1080p',
+        },
+        {
+          billable: 'output_video',
+          unit: 'token',
+          costUsd: 0.000004,
+          variant: '4k',
+        },
+      ],
+    },
+  },
+  {
+    id: 'seedance-2-5',
+    kind: 'video',
+    provider: 'seedance',
+    providerModelId: 'dreamina-seedance-2-5-260628',
+    label: 'Seedance 2.5',
+    status: 'active',
+    capabilities: {
+      requiresStartImage: false,
+      supportsEndImage: true,
+      endImageRequiresStart: true,
+      imageToVideoRatio: 'adaptive',
+      audio: 'toggle',
+      supportsAudio: true,
+      resolutions: ['480p', '720p', '1080p', '4k'],
+      durations: Array.from({ length: 27 }, (_, i) => i + 4),
+      aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9', 'adaptive'],
+      maxPromptChars: 2500,
+      maxImageMb: 10,
+      maxRequestMb: 64,
+      imageFormats: [
+        'image/png',
+        'image/jpeg',
+        'image/webp',
+        'image/tiff',
+        'image/gif',
+      ],
+      minImagePixels: 300,
+      maxImagePixels: 6000,
+      imageAspectRatio: { min: 0.4, max: 2.5 },
+      maxReferences: 2,
+      rejectsRealPeople: true,
+      executionExpiresAfter: 3600,
+      supportsDraft: true,
+    },
+    options: [],
+    costUnits: 10.7,
+    pricing: {
+      source: 'https://docs.byteplus.com/en/docs/modelark/model-pricing',
+      checkedAt: '2026-11-19',
+      rates: [
+        {
+          billable: 'output_video',
+          unit: 'token',
+          costUsd: 0.0000107,
+          variant: '480p/720p',
+        },
+        {
+          billable: 'output_video',
+          unit: 'token',
+          costUsd: 0.0000117,
+          variant: '1080p',
+        },
+        {
+          billable: 'output_video',
+          unit: 'token',
+          costUsd: 0.0000047,
+          variant: '4k',
+        },
+      ],
+    },
+  },
+];
+export const videoAspectRatios = [
+  '16:9',
+  '9:16',
+  '1:1',
+  '4:3',
+  '3:4',
+  '21:9',
+  'adaptive',
+] as const;
+export const videoResolutions = ['480p', '720p', '1080p', '4k'] as const;
 const imageCapabilities: ModelCapabilities = {
   aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4'],
   resolutions: ['1K', '2K', '4K'],
@@ -4246,6 +4385,7 @@ export const modelCatalog: readonly ModelDefinition[] = [
     costUnits: 1,
   },
   ...openrouterCatalog,
+  ...seedanceCatalog,
 ];
 export function findModel(id: string, catalog = modelCatalog) {
   return catalog.find(
@@ -4466,6 +4606,10 @@ export const availableModelSchema = z.object({
     requiresStartImage: z.boolean().optional(),
     imageToVideoRatio: z.literal('adaptive').optional(),
     maxPromptChars: z.number().positive().optional(),
+    supportsDraft: z.boolean().optional(),
+    executionExpiresAfter: z.number().int().positive().optional(),
+    rejectsRealPeople: z.boolean().optional(),
+    endImageRequiresStart: z.boolean().optional(),
     maxImageMb: z.number().positive().optional(),
     maxInputChars: z.number().positive().optional(),
     supportsSpeed: z.boolean().optional(),

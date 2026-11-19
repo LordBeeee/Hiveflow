@@ -1,3 +1,4 @@
+import { registerSeedance } from '../providers/seedance.provider';
 import { registerOpenRouter } from '../providers/openrouter.provider';
 import { DataSource } from 'typeorm';
 import { CostsService } from './costs.service';
@@ -84,6 +85,7 @@ import { ExecutorRegistry } from '../executors/executor-registry';
           new MockVideoProvider(config, db),
         );
         registerOpenRouter(registry, config);
+        registerSeedance(registry, config);
         return registry;
       },
     },

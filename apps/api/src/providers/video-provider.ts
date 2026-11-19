@@ -32,6 +32,8 @@ export interface VideoProvider {
       durationMs?: number;
     };
     error?: string;
+    usage?: { outputTokens?: number };
+    costUsd?: number;
   }>;
-  cancel?(taskId: string): Promise<void>;
+  cancel?(taskId: string): Promise<void | boolean>;
 }

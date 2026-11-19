@@ -62,6 +62,12 @@ export class VideoGeneratorExecutor implements NodeExecutor {
       throw new Error(
         `${model.label} does not support an end image. Disconnect it or choose another model.`,
       );
+    if (
+      model.capabilities.endImageRequiresStart &&
+      context.inputs?.ports.end_image?.length &&
+      !context.inputs?.ports.start_image?.length
+    )
+      throw new Error('Connect a start image before using an end image.');
     if (!context.runId || !context.checkpointTask)
       throw new Error('Video task checkpoint is unavailable');
     let taskId = context.providerTaskId;

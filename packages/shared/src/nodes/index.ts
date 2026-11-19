@@ -1,7 +1,13 @@
 import { z } from 'zod';
 import type { PortType } from '../types';
 import type { RunOutput } from '../media';
-import { imageAspectRatios, imageResolutions, type ModelKind } from '../models';
+import {
+  imageAspectRatios,
+  imageResolutions,
+  videoAspectRatios,
+  videoResolutions,
+  type ModelKind,
+} from '../models';
 import { ASSISTANT_PRESETS_VERSION } from '../assistant-presets';
 export type NodeCategory = 'Image' | 'Video' | 'Audio' | 'Text' | 'Utilities';
 
@@ -96,8 +102,8 @@ export const videoGeneratorParamsSchema = z
     prompt: z.string(),
     model: z.string().min(1),
     duration: z.number().int().min(1).max(30),
-    aspectRatio: z.enum(['16:9', '9:16', '1:1']),
-    resolution: z.enum(['720p', '1080p']),
+    aspectRatio: z.enum(videoAspectRatios),
+    resolution: z.enum(videoResolutions),
     generateAudio: z.boolean(),
     options: z
       .record(

@@ -11,8 +11,10 @@ import {
 } from '../dist/providers/models.service.js';
 import { ProviderRegistry } from '../dist/providers/provider-registry.js';
 import { registerOpenRouter } from '../dist/providers/openrouter.provider.js';
+import { registerSeedance } from '../dist/providers/seedance.provider.js';
 const selected = shared.openrouterCatalog;
-for (const configured of [false, true]) {
+for (const mode of ['none', 'openrouter', 'seedance']) {
+  const configured = mode === 'openrouter';
   const registry = new ProviderRegistry();
   for (const kind of ['llm', 'image', 'tts', 'video'])
     registry.register(kind, kind === 'video' ? 'mock-video' : 'mock', {
@@ -21,6 +23,9 @@ for (const configured of [false, true]) {
   const config = new ConfigService({
     OPENROUTER_API_KEY: configured ? 'offline-fixture' : '',
     OPENROUTER_BASE_URL: 'https://openrouter.ai/api/v1',
+    ARK_API_KEY: mode === 'seedance' ? 'offline-fixture' : '',
+    ARK_BASE_URL: 'https://ark.ap-southeast.bytepluses.com/api/v3',
+    MAX_VIDEO_MB: 250,
     PROVIDER_TIMEOUT_MS: 1000,
     DEFAULT_IMAGE_MODEL: 'mock-image',
     DEFAULT_LLM_MODEL: 'mock-llm',
@@ -28,6 +33,7 @@ for (const configured of [false, true]) {
     DEFAULT_VIDEO_MODEL: 'mock-video',
   });
   registerOpenRouter(registry, config);
+  registerSeedance(registry, config);
   class CatalogCheckModule {}
   Module({
     controllers: [ModelsController],
@@ -42,6 +48,11 @@ for (const configured of [false, true]) {
     const response = await fetch(base + '/models');
     assert.equal(response.status, 200);
     const models = await response.json();
+    for (const row of shared.seedanceCatalog) {
+      const actual = models.find((model) => model.id === row.id);
+      assert(actual, row.id);
+      assert.equal(actual.available, mode === 'seedance', row.id);
+    }
     for (const row of selected) {
       const actual = models.find((model) => model.id === row.id);
       assert(actual, row.id);
@@ -68,7 +79,7 @@ for (const configured of [false, true]) {
       assert(rows.every((model) => model.kind === kind));
     }
     console.log(
-      `GET /models passed: key ${configured ? 'configured (dummy)' : 'absent'}, ${selected.length} chosen rows, mocks remain defaults.`,
+      `GET /models passed: ${mode} key configuration (dummy), ${selected.length} OpenRouter and 2 Seedance rows, mocks remain defaults.`,
     );
   } finally {
     await app.close();

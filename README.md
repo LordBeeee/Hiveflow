@@ -215,7 +215,7 @@ Image credits are catalog rate × image count × resolution factor (512: 0.5, 1K
 
 PostgreSQL records reserve, adjustment and refund entries. Admission and reservations commit together under a per-user lock, including concurrent daily-limit checks. Failure/cancel refunds are idempotent and reconciliation repairs interrupted refunds. Refunds apply to the original UTC budget day. Removing a workflow cancels/refunds active work and retains completed usage audit IDs. Existing runs from earlier phases keep their historical zero mock cost. The deployment still assumes one API instance.
 
-Phase 11.2 is a rewrite based on official provider documentation. Shared groundwork, three OpenRouter adapters and the user-selected model catalog are implemented. Defaults remain mocks; no billable calls are made by tests or CI. Seedance/Kling and optional Veo remain later steps. See `docs/PHASE_11_2_CHECKS.md`.
+Phase 11.2 is a rewrite based on official provider documentation. Shared groundwork, three OpenRouter adapters, the user-selected model catalog and Seedance (11.2c) are implemented. Defaults remain mocks; no billable calls are made by tests or CI. Kling and optional Veo remain later steps. See `docs/PHASE_11_2_CHECKS.md`.
 
 ### OpenRouter checkpoint (11.2a / 11.2b)
 
@@ -229,6 +229,16 @@ Image controls expose the selected model's ratios and tiers, including 512 and 1
 
 Build the API and run `node scripts/live-check.mjs openrouter` with `HIVEFLOW_LIVE_CHECK=1` and the key exported in the terminal. It uses an OpenRouter Auto default when selected, otherwise the first selected non-retired OpenRouter row for that kind; keeping application defaults on mocks does not block the CLI. This explicitly billable manual check makes one minimal generation per kind and reports generation IDs and API cost when available (speech may require an eventual generation lookup). It refuses to run without the flag/key or if any kind has no selected catalog model. CI never runs it. `node apps/api/scripts/check-provider-audio.mjs` is an offline check after build, probing the committed silent MP3 fixture and PCM-to-WAV output.
 
-Media enters real adapters from storage bytes as base64 data URLs. Generated images/audio go through the existing asset storage path; provider result URLs are never persisted. OpenRouter's current Image API is all-or-nothing; see the documented differences in `docs/DECISIONS.md`. Seedance, Kling and optional Veo keys/adapters are future work.
+Media enters real adapters from storage bytes as base64 data URLs. Generated images/audio go through the existing asset storage path; provider result URLs are never persisted. OpenRouter's current Image API is all-or-nothing; see the documented differences in `docs/DECISIONS.md`. Kling and optional Veo keys/adapters are future work.
+
+### Seedance checkpoint (11.2c)
+
+Set `ARK_API_KEY` in local `.env` and activate the desired model in the ModelArk console. `ARK_BASE_URL` defaults to `https://ark.ap-southeast.bytepluses.com/api/v3`; `PROVIDER_CONCURRENCY_SEEDANCE` defaults to 2. A key enables the catalog locally; account activation, project permissions and balance are verified by the provider when called. Auto still defaults to mock video unless `DEFAULT_VIDEO_MODEL=seedance-2-0` or `seedance-2-5` is explicitly configured.
+
+Both models accept a text-only prompt or a start image plus optional end image. Seedance 2.0 offers 4–15 seconds; 2.5 offers 4–30 seconds and follows the start image's ratio. Both offer 480p/720p/1080p/4K and an audio toggle. The app caps images at 10 MB, prompt text at 2,500 characters and checks dimensions/ratio before submission. Real-person input rejection has a readable error. HEVC/10-bit results at high resolutions may require compatible system codecs or an external player.
+
+Accepted task IDs are checkpointed before polling, including after worker restart. Video bytes are downloaded immediately through the SSRF-safe downloader and streamed into asset storage; result URLs are transient. Cancel can cancel queued provider tasks; a running task may still be billed after local cancel or timeout. The provider task expiry is one hour; the application video timeout remains independently configurable.
+
+After `npm run build`, a user can explicitly run `node scripts/live-check.mjs seedance` with `HIVEFLOW_LIVE_CHECK=1` and `ARK_API_KEY` in the shell environment. This creates one billable 4-second/480p task, prints its ID and completion token count, and consumes/discards the downloaded bytes. It does not load `.env`, retry submissions or claim actual dollar cost. No live generation is run by acceptance tests.
 
 On PowerShell, a manual live check can load the key from your local file without pasting it into a command: `$env:HIVEFLOW_LIVE_CHECK='1'; node --env-file=.env scripts/live-check.mjs openrouter`. Clear the opt-in afterward with `Remove-Item Env:HIVEFLOW_LIVE_CHECK`. `node scripts/check-openrouter-live-check.mjs` instead checks the CLI with an injected offline transport and never reaches a provider.

@@ -49,6 +49,9 @@ it('validates optional provider config without requiring a key', () => {
     PROVIDER_CONCURRENCY_OPENROUTER: 2,
   });
   for (const patch of [
+    { ARK_API_KEY: 'bad\nkey' },
+    { ARK_BASE_URL: 'http://example.com' },
+    { PROVIDER_CONCURRENCY_SEEDANCE: 0 },
     { OPENROUTER_API_KEY: 'bad\nkey' },
     { OPENROUTER_BASE_URL: 'http://example.com' },
     { OPENROUTER_BASE_URL: 'https://key@example.com' },

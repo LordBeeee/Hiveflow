@@ -43,6 +43,18 @@ it('bounds response bytes', async () => {
     http.post('/', {}, new AbortController().signal),
   ).rejects.toThrow('size limit');
 });
+it('rejects empty successful JSON while accepting an empty DELETE response', async () => {
+  const send = jest
+    .fn()
+    .mockImplementation(async () => new Response(null, { status: 204 }));
+  const http = new ProviderHttp(config, send);
+  await expect(http.get('/', new AbortController().signal)).rejects.toThrow(
+    'empty JSON',
+  );
+  await expect(
+    http.delete('/', new AbortController().signal),
+  ).resolves.toMatchObject({ data: undefined });
+});
 it('honors timeout and the run abort signal without retrying internally', async () => {
   const send = jest.fn(
     (_url: string | URL | Request, init?: RequestInit) =>

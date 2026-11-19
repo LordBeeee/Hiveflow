@@ -38,6 +38,7 @@ export class ProviderHttp {
       mapError: ErrorMapper;
       timeoutMs?: number;
       maxResponseBytes?: number;
+      embeddedErrors?: boolean;
     },
     private readonly transport: typeof fetch = fetch,
   ) {}
@@ -64,6 +65,22 @@ export class ProviderHttp {
     signal: AbortSignal,
     binary = false,
   ) {
+    return this.request<T>('POST', path, body, signal, binary);
+  }
+  get<T = unknown>(path: string, signal: AbortSignal, model?: string) {
+    return this.request<T>('GET', path, undefined, signal, false, model);
+  }
+  delete<T = unknown>(path: string, signal: AbortSignal) {
+    return this.request<T>('DELETE', path, undefined, signal);
+  }
+  private async request<T = unknown>(
+    method: 'POST' | 'GET' | 'DELETE',
+    path: string,
+    body: unknown,
+    signal: AbortSignal,
+    binary = false,
+    model?: string,
+  ) {
     signal.throwIfAborted();
     const timeout = AbortSignal.timeout(this.config.timeoutMs ?? 120000);
     const combined = AbortSignal.any([signal, timeout]);
@@ -71,12 +88,12 @@ export class ProviderHttp {
       const response = await this.transport(
         `${this.config.baseUrl.replace(/\/$/, '')}${path}`,
         {
-          method: 'POST',
+          method,
           headers: {
             'Content-Type': 'application/json',
             ...this.config.headers,
           },
-          body: JSON.stringify(body),
+          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
           signal: combined,
           redirect: 'error',
         },
@@ -109,7 +126,7 @@ export class ProviderHttp {
         !binary ||
         !response.ok ||
         /json/i.test(response.headers.get('content-type') ?? '');
-      if (isJson) {
+      if (isJson && bytes.length) {
         try {
           json = JSON.parse(bytes.toString('utf8')) as unknown;
         } catch {
@@ -118,6 +135,7 @@ export class ProviderHttp {
               response.status,
               {},
               response.headers.get('retry-after'),
+              model,
             );
           throw new ProviderError(
             'unavailable',
@@ -126,8 +144,17 @@ export class ProviderHttp {
           );
         }
       }
+      if (response.ok && isJson && !bytes.length && method !== 'DELETE')
+        throw new ProviderError(
+          'unavailable',
+          false,
+          'The provider returned an empty JSON response.',
+        );
       const hasError =
-        json !== null && typeof json === 'object' && 'error' in json;
+        this.config.embeddedErrors !== false &&
+        json !== null &&
+        typeof json === 'object' &&
+        'error' in json;
       if (!response.ok || hasError) {
         throw this.error(
           response.status,
@@ -135,7 +162,7 @@ export class ProviderHttp {
           response.headers.get('retry-after'),
           typeof body === 'object' && body !== null && 'model' in body
             ? String(body.model)
-            : undefined,
+            : model,
         );
       }
       return { data: (binary ? bytes : json) as T, headers: response.headers };
