@@ -1,3 +1,4 @@
+import { veoProjectId, veoServiceAccount } from './providers/veo-auth';
 export function validateEnvironment(
   env: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -81,11 +82,23 @@ export function validateEnvironment(
     return value.replace(/\/$/, '');
   };
   const liveCheck = optionalText('HIVEFLOW_LIVE_CHECK');
+  const googleProject = optionalText('GOOGLE_CLOUD_PROJECT_ID');
+  if (googleProject) veoProjectId(googleProject);
+  const googleCredentials = env.GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON;
+  if (googleCredentials !== undefined && googleCredentials !== '') {
+    if (typeof googleCredentials !== 'string')
+      throw new Error(
+        'GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON must be a service-account JSON string.',
+      );
+    veoServiceAccount(googleCredentials);
+  }
   if (liveCheck !== undefined && liveCheck !== '0' && liveCheck !== '1')
     throw new Error('HIVEFLOW_LIVE_CHECK must be 0 or 1');
   return {
     ...env,
     HIVEFLOW_LIVE_CHECK: liveCheck ?? '0',
+    GOOGLE_CLOUD_PROJECT_ID: googleProject,
+    GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON: googleCredentials || undefined,
     ARK_API_KEY: optionalText('ARK_API_KEY'),
     KLING_API_KEY: optionalText('KLING_API_KEY'),
     KLING_BASE_URL: httpUrl(

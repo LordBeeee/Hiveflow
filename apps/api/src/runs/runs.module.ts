@@ -1,5 +1,6 @@
 import { registerSeedance } from '../providers/seedance.provider';
 import { registerKling } from '../providers/kling.provider';
+import { registerVeo } from '../providers/veo.provider';
 import { registerOpenRouter } from '../providers/openrouter.provider';
 import { DataSource } from 'typeorm';
 import { CostsService } from './costs.service';
@@ -88,6 +89,7 @@ import { ExecutorRegistry } from '../executors/executor-registry';
         registerOpenRouter(registry, config);
         registerSeedance(registry, config);
         registerKling(registry, config);
+        registerVeo(registry, config);
         return registry;
       },
     },

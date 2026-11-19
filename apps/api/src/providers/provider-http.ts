@@ -23,7 +23,7 @@ export function sanitizeMessage(
     if (secret) message = message.split(secret).join('[REDACTED]');
   return message
     .replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]')
-    .replace(/https?:\/\/[^\s]+/gi, '[URL omitted]')
+    .replace(/(?:https?|gs):\/\/[^\s]+/gi, '[URL omitted]')
     .replace(/data:[^\s]+/gi, '[media omitted]')
     .split('')
     .map((char) => (char.charCodeAt(0) < 32 ? ' ' : char))

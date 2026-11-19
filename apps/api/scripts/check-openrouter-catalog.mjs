@@ -1,5 +1,6 @@
 // Offline HTTP acceptance: a minimal Models controller, no DB/queue/storage/provider calls.
 import assert from 'node:assert/strict';
+import { generateKeyPairSync } from 'node:crypto';
 import 'reflect-metadata';
 import { Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
@@ -13,8 +14,16 @@ import { ProviderRegistry } from '../dist/providers/provider-registry.js';
 import { registerOpenRouter } from '../dist/providers/openrouter.provider.js';
 import { registerSeedance } from '../dist/providers/seedance.provider.js';
 import { registerKling } from '../dist/providers/kling.provider.js';
+import { registerVeo } from '../dist/providers/veo.provider.js';
+const fixtureCredentials = JSON.stringify({
+  type: 'service_account',
+  client_email: 'fixture@offline-project.iam.gserviceaccount.com',
+  private_key: generateKeyPairSync('rsa', { modulusLength: 2048 })
+    .privateKey.export({ type: 'pkcs8', format: 'pem' })
+    .toString(),
+});
 const selected = shared.openrouterCatalog;
-for (const mode of ['none', 'openrouter', 'seedance', 'kling']) {
+for (const mode of ['none', 'openrouter', 'seedance', 'kling', 'veo']) {
   const configured = mode === 'openrouter';
   const registry = new ProviderRegistry();
   for (const kind of ['llm', 'image', 'tts', 'video'])
@@ -28,6 +37,8 @@ for (const mode of ['none', 'openrouter', 'seedance', 'kling']) {
     ARK_BASE_URL: 'https://ark.ap-southeast.bytepluses.com/api/v3',
     KLING_API_KEY: mode === 'kling' ? 'offline-fixture' : '',
     KLING_BASE_URL: 'https://api-singapore.klingai.com',
+    GOOGLE_CLOUD_PROJECT_ID: mode === 'veo' ? 'offline-project' : '',
+    GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON: mode === 'veo' ? fixtureCredentials : '',
     MAX_VIDEO_MB: 250,
     PROVIDER_TIMEOUT_MS: 1000,
     DEFAULT_IMAGE_MODEL: 'mock-image',
@@ -38,6 +49,7 @@ for (const mode of ['none', 'openrouter', 'seedance', 'kling']) {
   registerOpenRouter(registry, config);
   registerSeedance(registry, config);
   registerKling(registry, config);
+  registerVeo(registry, config);
   class CatalogCheckModule {}
   Module({
     controllers: [ModelsController],
@@ -52,6 +64,11 @@ for (const mode of ['none', 'openrouter', 'seedance', 'kling']) {
     const response = await fetch(base + '/models');
     assert.equal(response.status, 200);
     const models = await response.json();
+    for (const row of shared.veoCatalog) {
+      const actual = models.find((model) => model.id === row.id);
+      assert(actual, row.id);
+      assert.equal(actual.available, mode === 'veo', row.id);
+    }
     for (const row of shared.klingCatalog) {
       const actual = models.find((model) => model.id === row.id);
       assert(actual, row.id);
@@ -88,7 +105,7 @@ for (const mode of ['none', 'openrouter', 'seedance', 'kling']) {
       assert(rows.every((model) => model.kind === kind));
     }
     console.log(
-      `GET /models passed: ${mode} key configuration (dummy), ${selected.length} OpenRouter, 2 Seedance and 2 Kling rows; mocks remain defaults.`,
+      `GET /models passed: ${mode} credential configuration (dummy), ${selected.length} OpenRouter, 2 Seedance, 2 Kling and 2 Veo rows; mocks remain defaults.`,
     );
   } finally {
     await app.close();

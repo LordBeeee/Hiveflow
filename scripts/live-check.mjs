@@ -1,4 +1,8 @@
 // Explicit opt-in only. Uses the same adapters as the API, never called by CI.
+if (process.argv[2] === 'veo') {
+  await import('./live-check-veo.mjs');
+  process.exit(process.exitCode ?? 0);
+}
 if (process.argv[2] === 'kling') {
   await import('./live-check-kling.mjs');
   process.exit(process.exitCode ?? 0);

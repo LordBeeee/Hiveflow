@@ -128,7 +128,7 @@ The optional Vite development server proxies `/health` and `/api/*` to port 3000
 - `SPACES_PLAN.md`: phase acceptance criteria and remaining prototype scope.
 - `NODES_PLAN.md`: continuation for node picker, platform generalization and additional media nodes.
 
-Phases 0–10 and Phase 11.1 (cost guards) are implemented. Phase 11.2 introduces fresh provider adapters in steps: shared groundwork, OpenRouter, then Seedance/Kling; Veo is optional. See `docs/PHASE_3_CHECKS.md` through `docs/PHASE_10_CHECKS.md` for verification evidence. The default provider remains a mock. Production work includes real authentication, shared event/rate-limit infrastructure for multiple API replicas and orphan-object cleanup.
+Phases 0–10, Phase 11.1 (cost guards) and Phase 11.2 (provider integrations, including the requested optional Veo step) are implemented. See `docs/PHASE_3_CHECKS.md` through `docs/PHASE_11_2_CHECKS.md` for verification evidence. The default provider remains a mock. Production work includes real authentication, shared event/rate-limit infrastructure for multiple API replicas and orphan-object cleanup.
 
 ## Models and platform (Phase 7)
 
@@ -215,7 +215,7 @@ Image credits are catalog rate × image count × resolution factor (512: 0.5, 1K
 
 PostgreSQL records reserve, adjustment and refund entries. Admission and reservations commit together under a per-user lock, including concurrent daily-limit checks. Failure/cancel refunds are idempotent and reconciliation repairs interrupted refunds. Refunds apply to the original UTC budget day. Removing a workflow cancels/refunds active work and retains completed usage audit IDs. Existing runs from earlier phases keep their historical zero mock cost. The deployment still assumes one API instance.
 
-Phase 11.2 is a rewrite based on official provider documentation. Shared groundwork, three OpenRouter adapters, the user-selected model catalog, Seedance (11.2c) and Kling (11.2d) are implemented. Defaults remain mocks; no billable calls are made by tests or CI. Optional Veo remains a later step, only on request. See `docs/PHASE_11_2_CHECKS.md`.
+Phase 11.2 is a rewrite based on official provider documentation. Shared groundwork, three OpenRouter adapters, the user-selected model catalog, Seedance (11.2c), Kling (11.2d) and the requested Veo integration (11.2e) are implemented. Defaults remain mocks; no billable calls are made by tests or CI. See `docs/PHASE_11_2_CHECKS.md`.
 
 ### OpenRouter checkpoint (11.2a / 11.2b)
 
@@ -229,7 +229,7 @@ Image controls expose the selected model's ratios and tiers, including 512 and 1
 
 Build the API and run `node scripts/live-check.mjs openrouter` with `HIVEFLOW_LIVE_CHECK=1` and the key exported in the terminal. It uses an OpenRouter Auto default when selected, otherwise the first selected non-retired OpenRouter row for that kind; keeping application defaults on mocks does not block the CLI. This explicitly billable manual check makes one minimal generation per kind and reports generation IDs and API cost when available (speech may require an eventual generation lookup). It refuses to run without the flag/key or if any kind has no selected catalog model. CI never runs it. `node apps/api/scripts/check-provider-audio.mjs` is an offline check after build, probing the committed silent MP3 fixture and PCM-to-WAV output.
 
-Media enters real adapters from storage bytes as base64 in the format accepted by each provider. Generated images/audio/video go through the existing asset storage path; provider result URLs are never persisted. OpenRouter's current Image API is all-or-nothing; see the documented differences in `docs/DECISIONS.md`. Optional Veo remains future work.
+Media enters real adapters from storage bytes as base64 in the format accepted by each provider. Generated images/audio/video go through the existing asset storage path; provider result URLs are never persisted. OpenRouter's current Image API is all-or-nothing; see the documented differences in `docs/DECISIONS.md`.
 
 ### Seedance checkpoint (11.2c)
 
@@ -252,3 +252,13 @@ Both models require a start image, follow its aspect ratio and offer 3–15 seco
 Accepted tasks are checkpointed and resume through GET only. Results are downloaded immediately and streamed into owned assets. No cancellation endpoint is documented for this API, so Cancel stops local processing; the provider task can continue and be billed. An uncertain submit must be checked in the Kling developer console before manually retrying. Cost estimates use abstract application units; catalog pricing records the provider's unit-per-second rates without inventing a USD conversion.
 
 After `npm run build`, manually run `node scripts/live-check.mjs kling <local-png-or-jpeg>` with `HIVEFLOW_LIVE_CHECK=1` and `KLING_API_KEY` set in the shell. It submits one billable 3-second/720p task using that image and consumes/discards the result bytes. Mock defaults choose Turbo for this check; an explicit Kling default chooses that model. The CLI reports the task ID and documented billing when returned; `costUsd` stays null unless every billing row is USD cash. It does not load `.env` or retry submissions. Automated CLI acceptance replaces both HTTP and downloads with offline fixtures.
+
+### Veo checkpoint (11.2e)
+
+Set `GOOGLE_CLOUD_PROJECT_ID` and `GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON` in local `.env`. The latter is the complete service-account JSON key, preferably a single-quoted one-line JSON value so the JSON-escaped newlines in `private_key` remain intact. Do not commit it. Both variables are needed; ambient application default credentials are not used. The official `google-auth-library` obtains and refreshes OAuth access tokens with cloud-platform scope. Enable the Vertex AI API, billing, service-account IAM permissions and model access/quota in the target Google Cloud project. Configured credentials mean locally available, not proof that these permissions are granted.
+
+The regional endpoint is fixed to `us-central1`. `PROVIDER_CONCURRENCY_VEO` defaults to 2. To change Auto explicitly, use `DEFAULT_VIDEO_MODEL=veo-3-1` or `veo-3-1-fast`; defaults otherwise remain mocks. Both selected GA models support text-only prompts and optional first/last frames (an end frame requires a start frame), 4/6/8 seconds, 16:9 or 9:16, and toggled audio. Standard supports 720p/1080p/4k; Fast is limited to the 720p/1080p published model capabilities even though the pricing page also lists a Fast 4k tier. Input images must be valid JPEG/PNG, at most 20 MB each; the shared 16 MP decoder guard remains. Prompt text is capped by the app at 2,500 characters.
+
+One video is requested per run. The full operation name is checkpointed before polling and validated against the configured project, region and catalog model on resume. Input bytes go inline as Base64; `storageUri` is omitted so output bytes are returned inline. Only a canonical Base64 MP4 result is accepted. A `gcsUri` response is a clear unsupported-response error; Cloud Storage retrieval is outside this step. The decoded inline video cap is the smaller of `MAX_VIDEO_MB` and 64 MB, with a corresponding bounded JSON response. Inline responses must be buffered before decoding; the decoded bytes are then streamed into asset storage, and Base64 is never stored in Postgres. Local cancel does not cancel the provider operation and may still incur charges.
+
+After `npm run build`, manually run `node scripts/live-check.mjs veo` with `HIVEFLOW_LIVE_CHECK=1` and both Google variables in the shell environment. It does not load `.env`. With mock Auto defaults it chooses Fast for one billable text-only 4-second/720p video with audio off; an explicit Veo default chooses that model. It prints the operation ID and consumes/discards the result bytes. The API does not report dollar cost here, so `costUsd` is null. Automated CLI checks replace OAuth and provider HTTP before execution; no real credentials or generation are used.

@@ -4052,6 +4052,120 @@ export const imageAspectRatios = [
 ] as const;
 export const imageResolutions = ['512', '1K', '1.5K', '2K', '4K'] as const;
 
+export const veoCatalog: readonly ModelDefinition[] = [
+  {
+    id: 'veo-3-1',
+    providerModelId: 'veo-3.1-generate-001',
+    label: 'Veo 3.1',
+    kind: 'video',
+    provider: 'veo',
+    status: 'active',
+    capabilities: {
+      requiresStartImage: false,
+      supportsEndImage: true,
+      endImageRequiresStart: true,
+      cancellation: 'none',
+      audio: 'toggle',
+      supportsAudio: true,
+      durations: [4, 6, 8],
+      resolutions: ['720p', '1080p', '4k'],
+      aspectRatios: ['16:9', '9:16'],
+      maxPromptChars: 2500,
+      imageFormats: ['image/jpeg', 'image/png'],
+      maxImageMb: 20,
+      maxRequestMb: 56,
+      maxReferences: 2,
+    },
+    options: [],
+    costUnits: 40,
+    pricing: {
+      source: 'https://cloud.google.com/model-garden/pricing',
+      checkedAt: '2026-11-19',
+      rates: [
+        {
+          billable: 'video',
+          unit: 'count (as published)',
+          costUsd: 0.2,
+          variant: '720p/1080p; audio off',
+        },
+        {
+          billable: 'video_audio',
+          unit: 'count (as published)',
+          costUsd: 0.4,
+          variant: '720p/1080p; audio on',
+        },
+        {
+          billable: 'video',
+          unit: 'count (as published)',
+          costUsd: 0.4,
+          variant: '4k; audio off',
+        },
+        {
+          billable: 'video_audio',
+          unit: 'count (as published)',
+          costUsd: 0.6,
+          variant: '4k; audio on',
+        },
+      ],
+    },
+  },
+  {
+    id: 'veo-3-1-fast',
+    providerModelId: 'veo-3.1-fast-generate-001',
+    label: 'Veo 3.1 Fast',
+    kind: 'video',
+    provider: 'veo',
+    status: 'active',
+    capabilities: {
+      requiresStartImage: false,
+      supportsEndImage: true,
+      endImageRequiresStart: true,
+      cancellation: 'none',
+      audio: 'toggle',
+      supportsAudio: true,
+      durations: [4, 6, 8],
+      resolutions: ['720p', '1080p'],
+      aspectRatios: ['16:9', '9:16'],
+      maxPromptChars: 2500,
+      imageFormats: ['image/jpeg', 'image/png'],
+      maxImageMb: 20,
+      maxRequestMb: 56,
+      maxReferences: 2,
+    },
+    options: [],
+    costUnits: 12,
+    pricing: {
+      source: 'https://cloud.google.com/model-garden/pricing',
+      checkedAt: '2026-11-19',
+      rates: [
+        {
+          billable: 'video',
+          unit: 'count (as published)',
+          costUsd: 0.08,
+          variant: '720p; audio off',
+        },
+        {
+          billable: 'video_audio',
+          unit: 'count (as published)',
+          costUsd: 0.1,
+          variant: '720p; audio on',
+        },
+        {
+          billable: 'video',
+          unit: 'count (as published)',
+          costUsd: 0.1,
+          variant: '1080p; audio off',
+        },
+        {
+          billable: 'video_audio',
+          unit: 'count (as published)',
+          costUsd: 0.12,
+          variant: '1080p; audio on',
+        },
+      ],
+    },
+  },
+];
 export const klingCatalog: readonly ModelDefinition[] = [
   {
     id: 'kling-3-0-turbo',
@@ -4474,6 +4588,7 @@ export const modelCatalog: readonly ModelDefinition[] = [
   ...openrouterCatalog,
   ...seedanceCatalog,
   ...klingCatalog,
+  ...veoCatalog,
 ];
 export function findModel(id: string, catalog = modelCatalog) {
   return catalog.find(

@@ -42,15 +42,29 @@ it('validates optional provider config without requiring a key', () => {
       OPENROUTER_API_KEY: '',
       OPENROUTER_BASE_URL: '',
       PROVIDER_CONCURRENCY_OPENROUTER: '',
+      GOOGLE_CLOUD_PROJECT_ID: '',
+      GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON: '',
+      PROVIDER_CONCURRENCY_VEO: '',
     }),
   ).toMatchObject({
     OPENROUTER_API_KEY: undefined,
     OPENROUTER_BASE_URL: 'https://openrouter.ai/api/v1',
     PROVIDER_CONCURRENCY_OPENROUTER: 2,
+    GOOGLE_CLOUD_PROJECT_ID: undefined,
+    GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON: undefined,
+    PROVIDER_CONCURRENCY_VEO: 2,
   });
   for (const patch of [
     { ARK_API_KEY: 'bad\nkey' },
     { KLING_API_KEY: 'bad\nkey' },
+    { GOOGLE_CLOUD_PROJECT_ID: '../project' },
+    { GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON: 'invalid-secret-json' },
+    {
+      GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON: JSON.stringify({
+        type: 'external_account',
+      }),
+    },
+    { PROVIDER_CONCURRENCY_VEO: 0 },
     { KLING_BASE_URL: 'http://example.com' },
     { PROVIDER_CONCURRENCY_KLING: 0 },
     { ARK_BASE_URL: 'http://example.com' },
