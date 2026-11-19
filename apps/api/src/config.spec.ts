@@ -50,6 +50,9 @@ it('validates optional provider config without requiring a key', () => {
   });
   for (const patch of [
     { ARK_API_KEY: 'bad\nkey' },
+    { KLING_API_KEY: 'bad\nkey' },
+    { KLING_BASE_URL: 'http://example.com' },
+    { PROVIDER_CONCURRENCY_KLING: 0 },
     { ARK_BASE_URL: 'http://example.com' },
     { PROVIDER_CONCURRENCY_SEEDANCE: 0 },
     { OPENROUTER_API_KEY: 'bad\nkey' },

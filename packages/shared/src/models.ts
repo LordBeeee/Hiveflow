@@ -19,6 +19,7 @@ export interface ModelCapabilities {
   executionExpiresAfter?: number;
   rejectsRealPeople?: boolean;
   endImageRequiresStart?: boolean;
+  cancellation?: 'queued' | 'none';
   maxImageMb?: number;
   maxInputChars?: number;
   supportsSpeed?: boolean;
@@ -65,6 +66,11 @@ export interface ModelDefinition {
     inputUnit?: 'token' | 'character';
     promptUsd?: number;
     completionUsd?: number;
+    providerUnitRates?: readonly {
+      resolution: string;
+      audio: boolean;
+      unitsPerSecond: number;
+    }[];
     rates?: readonly {
       billable: string;
       unit: string;
@@ -4046,6 +4052,87 @@ export const imageAspectRatios = [
 ] as const;
 export const imageResolutions = ['512', '1K', '1.5K', '2K', '4K'] as const;
 
+export const klingCatalog: readonly ModelDefinition[] = [
+  {
+    id: 'kling-3-0-turbo',
+    providerModelId: 'kling-3.0-turbo',
+    label: 'Kling 3.0 Turbo',
+    kind: 'video',
+    provider: 'kling',
+    status: 'active',
+    capabilities: {
+      requiresStartImage: true,
+      imageToVideoRatio: 'adaptive',
+      supportsEndImage: false,
+      cancellation: 'none',
+      audio: 'included',
+      supportsAudio: true,
+      supportedParameters: [],
+      maxPromptChars: 2500,
+      resolutions: ['720p', '1080p'],
+      durations: Array.from({ length: 13 }, (_, i) => i + 3),
+      aspectRatios: ['adaptive'],
+      imageFormats: ['image/jpeg', 'image/png'],
+      maxImageMb: 10,
+      maxRequestMb: 32,
+      minImagePixels: 300,
+      imageAspectRatio: { min: 0.4, max: 2.5 },
+      maxReferences: 1,
+    },
+    options: [],
+    costUnits: 0.8,
+    pricing: {
+      source: 'https://kling.ai/document-api/productBilling/billingMethod',
+      checkedAt: '2026-11-19',
+      providerUnitRates: [
+        { resolution: '720p', audio: true, unitsPerSecond: 0.8 },
+        { resolution: '1080p', audio: true, unitsPerSecond: 1 },
+      ],
+    },
+  },
+  {
+    id: 'kling-3-0',
+    providerModelId: 'kling-3.0',
+    label: 'Kling 3.0',
+    kind: 'video',
+    provider: 'kling',
+    status: 'active',
+    capabilities: {
+      requiresStartImage: true,
+      endImageRequiresStart: true,
+      imageToVideoRatio: 'adaptive',
+      supportsEndImage: true,
+      cancellation: 'none',
+      audio: 'toggle',
+      supportsAudio: true,
+      supportedParameters: ['audio', 'multi_shot'],
+      maxPromptChars: 3072,
+      resolutions: ['720p', '1080p', '4k'],
+      durations: Array.from({ length: 13 }, (_, i) => i + 3),
+      aspectRatios: ['adaptive'],
+      imageFormats: ['image/jpeg', 'image/png'],
+      maxImageMb: 10,
+      maxRequestMb: 32,
+      minImagePixels: 300,
+      imageAspectRatio: { min: 0.4, max: 2.5 },
+      maxReferences: 2,
+    },
+    options: [],
+    costUnits: 0.9,
+    pricing: {
+      source: 'https://kling.ai/document-api/productBilling/billingMethod',
+      checkedAt: '2026-11-19',
+      providerUnitRates: [
+        { resolution: '720p', audio: false, unitsPerSecond: 0.6 },
+        { resolution: '720p', audio: true, unitsPerSecond: 0.9 },
+        { resolution: '1080p', audio: false, unitsPerSecond: 0.8 },
+        { resolution: '1080p', audio: true, unitsPerSecond: 1.2 },
+        { resolution: '4k', audio: false, unitsPerSecond: 3 },
+        { resolution: '4k', audio: true, unitsPerSecond: 3 },
+      ],
+    },
+  },
+];
 export const seedanceCatalog: readonly ModelDefinition[] = [
   {
     id: 'seedance-2-0',
@@ -4386,6 +4473,7 @@ export const modelCatalog: readonly ModelDefinition[] = [
   },
   ...openrouterCatalog,
   ...seedanceCatalog,
+  ...klingCatalog,
 ];
 export function findModel(id: string, catalog = modelCatalog) {
   return catalog.find(
@@ -4610,6 +4698,7 @@ export const availableModelSchema = z.object({
     executionExpiresAfter: z.number().int().positive().optional(),
     rejectsRealPeople: z.boolean().optional(),
     endImageRequiresStart: z.boolean().optional(),
+    cancellation: z.enum(['queued', 'none']).optional(),
     maxImageMb: z.number().positive().optional(),
     maxInputChars: z.number().positive().optional(),
     supportsSpeed: z.boolean().optional(),
@@ -4649,6 +4738,14 @@ export const availableModelSchema = z.object({
       inputUnit: z.enum(['token', 'character']).optional(),
       promptUsd: z.number().nonnegative().optional(),
       completionUsd: z.number().nonnegative().optional(),
+      providerUnitRates: z
+        .object({
+          resolution: z.string(),
+          audio: z.boolean(),
+          unitsPerSecond: z.number().nonnegative(),
+        })
+        .array()
+        .optional(),
       rates: z
         .object({
           billable: z.string(),

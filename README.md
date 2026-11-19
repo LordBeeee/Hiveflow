@@ -215,7 +215,7 @@ Image credits are catalog rate × image count × resolution factor (512: 0.5, 1K
 
 PostgreSQL records reserve, adjustment and refund entries. Admission and reservations commit together under a per-user lock, including concurrent daily-limit checks. Failure/cancel refunds are idempotent and reconciliation repairs interrupted refunds. Refunds apply to the original UTC budget day. Removing a workflow cancels/refunds active work and retains completed usage audit IDs. Existing runs from earlier phases keep their historical zero mock cost. The deployment still assumes one API instance.
 
-Phase 11.2 is a rewrite based on official provider documentation. Shared groundwork, three OpenRouter adapters, the user-selected model catalog and Seedance (11.2c) are implemented. Defaults remain mocks; no billable calls are made by tests or CI. Kling and optional Veo remain later steps. See `docs/PHASE_11_2_CHECKS.md`.
+Phase 11.2 is a rewrite based on official provider documentation. Shared groundwork, three OpenRouter adapters, the user-selected model catalog, Seedance (11.2c) and Kling (11.2d) are implemented. Defaults remain mocks; no billable calls are made by tests or CI. Optional Veo remains a later step, only on request. See `docs/PHASE_11_2_CHECKS.md`.
 
 ### OpenRouter checkpoint (11.2a / 11.2b)
 
@@ -229,7 +229,7 @@ Image controls expose the selected model's ratios and tiers, including 512 and 1
 
 Build the API and run `node scripts/live-check.mjs openrouter` with `HIVEFLOW_LIVE_CHECK=1` and the key exported in the terminal. It uses an OpenRouter Auto default when selected, otherwise the first selected non-retired OpenRouter row for that kind; keeping application defaults on mocks does not block the CLI. This explicitly billable manual check makes one minimal generation per kind and reports generation IDs and API cost when available (speech may require an eventual generation lookup). It refuses to run without the flag/key or if any kind has no selected catalog model. CI never runs it. `node apps/api/scripts/check-provider-audio.mjs` is an offline check after build, probing the committed silent MP3 fixture and PCM-to-WAV output.
 
-Media enters real adapters from storage bytes as base64 data URLs. Generated images/audio go through the existing asset storage path; provider result URLs are never persisted. OpenRouter's current Image API is all-or-nothing; see the documented differences in `docs/DECISIONS.md`. Kling and optional Veo keys/adapters are future work.
+Media enters real adapters from storage bytes as base64 in the format accepted by each provider. Generated images/audio/video go through the existing asset storage path; provider result URLs are never persisted. OpenRouter's current Image API is all-or-nothing; see the documented differences in `docs/DECISIONS.md`. Optional Veo remains future work.
 
 ### Seedance checkpoint (11.2c)
 
@@ -242,3 +242,13 @@ Accepted task IDs are checkpointed before polling, including after worker restar
 After `npm run build`, a user can explicitly run `node scripts/live-check.mjs seedance` with `HIVEFLOW_LIVE_CHECK=1` and `ARK_API_KEY` in the shell environment. This creates one billable 4-second/480p task, prints its ID and completion token count, and consumes/discards the downloaded bytes. It does not load `.env`, retry submissions or claim actual dollar cost. No live generation is run by acceptance tests.
 
 On PowerShell, a manual live check can load the key from your local file without pasting it into a command: `$env:HIVEFLOW_LIVE_CHECK='1'; node --env-file=.env scripts/live-check.mjs openrouter`. Clear the opt-in afterward with `Remove-Item Env:HIVEFLOW_LIVE_CHECK`. `node scripts/check-openrouter-live-check.mjs` instead checks the CLI with an injected offline transport and never reaches a provider.
+
+### Kling checkpoint (11.2d)
+
+Set the current bearer `KLING_API_KEY` in local `.env`; `KLING_BASE_URL` defaults to `https://api-singapore.klingai.com` and `PROVIDER_CONCURRENCY_KLING` defaults to 2. This uses the current `/image-to-video/{model}` API and `/tasks` polling. It does not generate JWTs. Configuring a key enables the two catalog rows locally; model/resource-package access and credit are checked by Kling on each call. To change Auto explicitly, set `DEFAULT_VIDEO_MODEL=kling-3-0-turbo` or `kling-3-0`; defaults otherwise remain mocks.
+
+Both models require a start image, follow its aspect ratio and offer 3–15 seconds. Turbo supports 720p/1080p, first frame only and included native audio (no audio toggle). Standard 3.0 adds an optional end frame, 4k and an audio toggle. Image inputs are validated JPEG/PNG storage bytes encoded as raw Base64, capped by the application at 10 MB with sides at least 300 px and ratio 0.4–2.5. The current official pages allow 50 MB; the app deliberately retains a smaller cap. Prompt caps are 2,500 characters for Turbo and 3,072 for standard.
+
+Accepted tasks are checkpointed and resume through GET only. Results are downloaded immediately and streamed into owned assets. No cancellation endpoint is documented for this API, so Cancel stops local processing; the provider task can continue and be billed. An uncertain submit must be checked in the Kling developer console before manually retrying. Cost estimates use abstract application units; catalog pricing records the provider's unit-per-second rates without inventing a USD conversion.
+
+After `npm run build`, manually run `node scripts/live-check.mjs kling <local-png-or-jpeg>` with `HIVEFLOW_LIVE_CHECK=1` and `KLING_API_KEY` set in the shell. It submits one billable 3-second/720p task using that image and consumes/discards the result bytes. Mock defaults choose Turbo for this check; an explicit Kling default chooses that model. The CLI reports the task ID and documented billing when returned; `costUsd` stays null unless every billing row is USD cash. It does not load `.env` or retry submissions. Automated CLI acceptance replaces both HTTP and downloads with offline fixtures.

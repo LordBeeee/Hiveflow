@@ -64,8 +64,9 @@ export class ProviderHttp {
     body: unknown,
     signal: AbortSignal,
     binary = false,
+    model?: string,
   ) {
-    return this.request<T>('POST', path, body, signal, binary);
+    return this.request<T>('POST', path, body, signal, binary, model);
   }
   get<T = unknown>(path: string, signal: AbortSignal, model?: string) {
     return this.request<T>('GET', path, undefined, signal, false, model);

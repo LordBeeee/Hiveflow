@@ -262,6 +262,12 @@ export function VideoGeneratorNode({
             provider may still be billed.
           </p>
         )}
+        {model?.capabilities.cancellation === 'none' && (
+          <p className="model-warning">
+            Cancel stops local processing. The provider task cannot be canceled
+            and may still be billed.
+          </p>
+        )}
         <div className="execution-status">
           {stale && <span className="stale-badge">Stale · inputs changed</span>}
           {run?.cacheHit && <span className="cache-badge">Cache hit</span>}

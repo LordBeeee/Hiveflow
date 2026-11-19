@@ -87,6 +87,11 @@ export function validateEnvironment(
     ...env,
     HIVEFLOW_LIVE_CHECK: liveCheck ?? '0',
     ARK_API_KEY: optionalText('ARK_API_KEY'),
+    KLING_API_KEY: optionalText('KLING_API_KEY'),
+    KLING_BASE_URL: httpUrl(
+      'KLING_BASE_URL',
+      'https://api-singapore.klingai.com',
+    ),
     ARK_BASE_URL: httpUrl(
       'ARK_BASE_URL',
       'https://ark.ap-southeast.bytepluses.com/api/v3',

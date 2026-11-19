@@ -12,8 +12,9 @@ import {
 import { ProviderRegistry } from '../dist/providers/provider-registry.js';
 import { registerOpenRouter } from '../dist/providers/openrouter.provider.js';
 import { registerSeedance } from '../dist/providers/seedance.provider.js';
+import { registerKling } from '../dist/providers/kling.provider.js';
 const selected = shared.openrouterCatalog;
-for (const mode of ['none', 'openrouter', 'seedance']) {
+for (const mode of ['none', 'openrouter', 'seedance', 'kling']) {
   const configured = mode === 'openrouter';
   const registry = new ProviderRegistry();
   for (const kind of ['llm', 'image', 'tts', 'video'])
@@ -25,6 +26,8 @@ for (const mode of ['none', 'openrouter', 'seedance']) {
     OPENROUTER_BASE_URL: 'https://openrouter.ai/api/v1',
     ARK_API_KEY: mode === 'seedance' ? 'offline-fixture' : '',
     ARK_BASE_URL: 'https://ark.ap-southeast.bytepluses.com/api/v3',
+    KLING_API_KEY: mode === 'kling' ? 'offline-fixture' : '',
+    KLING_BASE_URL: 'https://api-singapore.klingai.com',
     MAX_VIDEO_MB: 250,
     PROVIDER_TIMEOUT_MS: 1000,
     DEFAULT_IMAGE_MODEL: 'mock-image',
@@ -34,6 +37,7 @@ for (const mode of ['none', 'openrouter', 'seedance']) {
   });
   registerOpenRouter(registry, config);
   registerSeedance(registry, config);
+  registerKling(registry, config);
   class CatalogCheckModule {}
   Module({
     controllers: [ModelsController],
@@ -48,6 +52,11 @@ for (const mode of ['none', 'openrouter', 'seedance']) {
     const response = await fetch(base + '/models');
     assert.equal(response.status, 200);
     const models = await response.json();
+    for (const row of shared.klingCatalog) {
+      const actual = models.find((model) => model.id === row.id);
+      assert(actual, row.id);
+      assert.equal(actual.available, mode === 'kling', row.id);
+    }
     for (const row of shared.seedanceCatalog) {
       const actual = models.find((model) => model.id === row.id);
       assert(actual, row.id);
@@ -74,12 +83,12 @@ for (const mode of ['none', 'openrouter', 'seedance']) {
         .filter((model) => model.provider === 'custom')
         .every((model) => !model.available),
     );
-    for (const kind of ['llm', 'image', 'tts']) {
+    for (const kind of ['llm', 'image', 'tts', 'video']) {
       const rows = await (await fetch(`${base}/models?kind=${kind}`)).json();
       assert(rows.every((model) => model.kind === kind));
     }
     console.log(
-      `GET /models passed: ${mode} key configuration (dummy), ${selected.length} OpenRouter and 2 Seedance rows, mocks remain defaults.`,
+      `GET /models passed: ${mode} key configuration (dummy), ${selected.length} OpenRouter, 2 Seedance and 2 Kling rows; mocks remain defaults.`,
     );
   } finally {
     await app.close();

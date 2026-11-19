@@ -1,4 +1,8 @@
 // Explicit opt-in only. Uses the same adapters as the API, never called by CI.
+if (process.argv[2] === 'kling') {
+  await import('./live-check-kling.mjs');
+  process.exit(process.exitCode ?? 0);
+}
 if (process.argv[2] === 'seedance') {
   await import('./live-check-seedance.mjs');
   process.exit(0);

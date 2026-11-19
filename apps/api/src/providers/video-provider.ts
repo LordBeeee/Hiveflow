@@ -1,5 +1,8 @@
 import type { MediaInput } from './media-input';
 import type { Readable } from 'node:stream';
+export type VideoBilling =
+  | { chargeType: 'cash'; amount: number; currency: 'USD' | 'CNY' }
+  | { chargeType: 'unit'; amount: number };
 export interface VideoRequest {
   requestId: string;
   prompt: string;
@@ -34,6 +37,7 @@ export interface VideoProvider {
     error?: string;
     usage?: { outputTokens?: number };
     costUsd?: number;
+    billing?: VideoBilling[];
   }>;
   cancel?(taskId: string): Promise<void | boolean>;
 }
