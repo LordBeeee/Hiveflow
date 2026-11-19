@@ -40,13 +40,13 @@ export async function imageDataUri(
     (caps.maxImagePixels &&
       Math.max(meta.width!, meta.height!) > caps.maxImagePixels)
   )
-    invalid('Reference image dimensions are outside this model�s limits.');
+    invalid('Reference image dimensions are outside this model limits.');
   const ratio = meta.width! / meta.height!;
   if (
     caps.imageAspectRatio &&
     (ratio < caps.imageAspectRatio.min || ratio > caps.imageAspectRatio.max)
   )
-    invalid('Reference image aspect ratio is outside this model�s limits.');
+    invalid('Reference image aspect ratio is outside this model limits.');
   return `data:${input.mime};base64,${bytes.toString('base64')}`;
 }
 export function validateRequestSize(body: unknown, caps: ModelCapabilities) {

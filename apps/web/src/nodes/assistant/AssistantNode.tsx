@@ -1,8 +1,8 @@
 import { CostButton } from '../../api/costs';
 import { useState } from 'react';
-import { assistantPresets, nodeRegistry } from '@hiveflow/shared';
+import { assistantPresets, nodeRegistry, selectModel } from '@hiveflow/shared';
 import type { NodeProps } from '@xyflow/react';
-import { ModelControls } from '../../api/models';
+import { ModelControls, useModels } from '../../api/models';
 import { useExecution } from '../../api/execution';
 import { useGraphStore } from '../../store/graph';
 import { useRunStore } from '../../store/runs';
@@ -21,6 +21,17 @@ export function AssistantNode({ id, data, selected }: NodeProps<CanvasNode>) {
   const params = nodeRegistry.assistant.paramsSchema.parse(
     data.graphNode.params,
   );
+  const models = useModels('llm');
+  let model: ReturnType<typeof selectModel> | undefined;
+  try {
+    model = selectModel(
+      String(data.graphNode.params.model ?? 'auto'),
+      'llm',
+      models.data ?? [],
+    );
+  } catch {
+    /* ModelControls explains availability. */
+  }
   const busy =
     requesting || run?.status === 'queued' || run?.status === 'running';
   const error = requestError ?? (run?.status === 'failed' ? run.error : null);
@@ -54,7 +65,7 @@ export function AssistantNode({ id, data, selected }: NodeProps<CanvasNode>) {
         <textarea
           className="assistant-message nowheel"
           aria-label={`${label} message`}
-          maxLength={8000}
+          maxLength={Math.min(8000, model?.capabilities.maxPromptChars ?? 8000)}
           placeholder="What would you like to create? Add instructions to your connected context…"
           value={params.message}
           onChange={(event) => update({ message: event.target.value })}

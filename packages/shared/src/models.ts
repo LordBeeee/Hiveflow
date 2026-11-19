@@ -305,6 +305,11 @@ export function validateModelParams(
     language: caps.languages,
   })) {
     if (
+      !(
+        field === 'aspectRatio' &&
+        caps.imageToVideoRatio === 'adaptive' &&
+        params.hasStartImage === true
+      ) &&
       supported &&
       params[field] !== undefined &&
       !(supported as readonly unknown[]).includes(params[field])
@@ -530,5 +535,4 @@ export const openrouterImageCandidates: readonly string[] = [
   'google/gemini-3.1-flash-image-preview',
   'google/gemini-3-pro-image-preview',
   'google/gemini-2.5-flash-image',
-  'GET /images/models',
 ];

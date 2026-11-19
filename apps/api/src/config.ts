@@ -51,9 +51,48 @@ export function validateEnvironment(
   for (const key of Object.keys(env).filter((key) =>
     /^PROVIDER_CONCURRENCY_[A-Z0-9_]+$/.test(key),
   ))
-    providerLimits[key] = integer(key, 2, 1, 32);
+    providerLimits[key] = env[key] === '' ? 2 : integer(key, 2, 1, 32);
+  const optionalText = (key: string) => {
+    const value = env[key];
+    if (value === undefined || value === '') return undefined;
+    if (typeof value !== 'string' || !value.trim() || /[\r\n]/.test(value))
+      throw new Error(`${key} must be a nonempty single-line string`);
+    return value.trim();
+  };
+  const httpUrl = (key: string, fallback?: string) => {
+    const value = optionalText(key) ?? fallback;
+    if (!value) return undefined;
+    let url: URL;
+    try {
+      url = new URL(value);
+    } catch {
+      throw new Error(`${key} must be an HTTPS URL`);
+    }
+    if (
+      url.protocol !== 'https:' ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash
+    )
+      throw new Error(
+        `${key} must be an HTTPS URL without credentials, query or fragment`,
+      );
+    return value.replace(/\/$/, '');
+  };
+  const liveCheck = optionalText('HIVEFLOW_LIVE_CHECK');
+  if (liveCheck !== undefined && liveCheck !== '0' && liveCheck !== '1')
+    throw new Error('HIVEFLOW_LIVE_CHECK must be 0 or 1');
   return {
     ...env,
+    HIVEFLOW_LIVE_CHECK: liveCheck ?? '0',
+    OPENROUTER_API_KEY: optionalText('OPENROUTER_API_KEY'),
+    OPENROUTER_APP_NAME: optionalText('OPENROUTER_APP_NAME'),
+    OPENROUTER_APP_URL: httpUrl('OPENROUTER_APP_URL'),
+    OPENROUTER_BASE_URL: httpUrl(
+      'OPENROUTER_BASE_URL',
+      'https://openrouter.ai/api/v1',
+    ),
     API_PORT: port,
     WEB_ORIGIN: env.WEB_ORIGIN ?? 'http://localhost:5173',
     REDIS_URL: redis,

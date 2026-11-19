@@ -1,3 +1,4 @@
+import type { ProviderUsage } from './provider-usage';
 import type { MediaInput } from './media-input';
 export interface LlmRequest {
   system: string;
@@ -16,6 +17,7 @@ export interface LlmProvider {
     signal: AbortSignal,
   ): Promise<{
     text: string;
-    usage?: { inputTokens?: number; outputTokens?: number };
+    usage?: ProviderUsage;
+    generationId?: string;
   }>;
 }

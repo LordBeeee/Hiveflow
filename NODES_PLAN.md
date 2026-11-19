@@ -280,9 +280,9 @@ Today one Run all on a large graph can queue many paid generations (graphs may h
 
 Adapters live in `apps/api/src/providers/<kind>/<name>.provider.ts`, are selected through the model catalog's `provider` code, read secrets from env only, and never log keys.
 
-- **Video**: Kling and BytePlus Seedance. **Do not re-derive their APIs from docs**; port the request/poll logic from the user's existing Video AI app (`KlingService`, which authenticates with a single `KLING_API_KEY` bearer token, and the Seedance client). **Ask the user to provide those files** before starting this step. Map their task states to the `VideoProvider` contract.
-- **LLM** and **TTS**: implement one adapter each once the user names the providers. Until then they stay `mock`.
-- Contract tests per adapter using recorded fixtures (no live calls in CI). A manual `scripts/live-check.mjs <provider>` that only runs when an explicit env flag is set.
+- **Rewrite**: implement fresh adapters from official provider documentation. Never copy/import implementation from another project. Official documentation overrides provider reference notes; record differences and source URLs in `docs/DECISIONS.md`.
+- **Order**: 11.2a shared media/HTTP/download/capability groundwork; 11.2b OpenRouter LLM/image/speech and discovery script, then stop for user-selected model IDs; 11.2c Seedance and 11.2d Kling later; optional Veo only on request.
+- Contract tests per adapter using handwritten documented fixtures (no live calls in CI). A manual `scripts/live-check.mjs <provider>` that only runs when an explicit env flag is set.
 - Add each real model to the catalog with its `providerModelId`, accurate `capabilities`, `options` and `costUnits`; the model selects pick them up automatically through `GET /models`, and a model becomes selectable only when its provider's credentials are configured.
 - Each adapter maps its failures to `ProviderError` (7.5): rate limits and 5xx are `retryable`; content-policy blocks, invalid parameters and exhausted quota are not, with a clear `userMessage`.
 

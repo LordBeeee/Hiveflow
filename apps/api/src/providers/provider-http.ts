@@ -41,6 +41,23 @@ export class ProviderHttp {
     },
     private readonly transport: typeof fetch = fetch,
   ) {}
+  error(
+    status: number,
+    body: unknown,
+    retryAfter?: string | null,
+    model?: string,
+  ) {
+    const error = this.config.mapError(status, body, retryAfter, model);
+    const secrets = Object.entries(this.config.headers)
+      .filter(([key]) => /authorization|key/i.test(key))
+      .flatMap(([, value]) => [value, value.replace(/^Bearer /i, '')]);
+    return new ProviderError(
+      error.code,
+      error.retryable,
+      sanitizeMessage(error.userMessage, secrets),
+      error.retryAfterMs,
+    );
+  }
   async post<T = unknown>(
     path: string,
     body: unknown,
@@ -96,6 +113,12 @@ export class ProviderHttp {
         try {
           json = JSON.parse(bytes.toString('utf8')) as unknown;
         } catch {
+          if (!response.ok)
+            throw this.error(
+              response.status,
+              {},
+              response.headers.get('retry-after'),
+            );
           throw new ProviderError(
             'unavailable',
             false,
@@ -106,22 +129,13 @@ export class ProviderHttp {
       const hasError =
         json !== null && typeof json === 'object' && 'error' in json;
       if (!response.ok || hasError) {
-        const error = this.config.mapError(
+        throw this.error(
           response.status,
           json,
           response.headers.get('retry-after'),
           typeof body === 'object' && body !== null && 'model' in body
             ? String(body.model)
             : undefined,
-        );
-        const secrets = Object.entries(this.config.headers)
-          .filter(([key]) => /authorization|key/i.test(key))
-          .flatMap(([, value]) => [value, value.replace(/^Bearer /i, '')]);
-        throw new ProviderError(
-          error.code,
-          error.retryable,
-          sanitizeMessage(error.userMessage, secrets),
-          error.retryAfterMs,
         );
       }
       return { data: (binary ? bytes : json) as T, headers: response.headers };

@@ -1,3 +1,4 @@
+import type { ProviderUsage } from './provider-usage';
 import type { MediaInput } from './media-input';
 export interface ImageRequest {
   prompt: string;
@@ -16,5 +17,7 @@ export interface ImageProvider {
   ): Promise<{
     images: { bytes: Buffer; mime: string; width: number; height: number }[];
     costCredits?: number;
+    usage?: ProviderUsage;
+    generationId?: string;
   }>;
 }

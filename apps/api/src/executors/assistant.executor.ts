@@ -57,7 +57,7 @@ export class AssistantExecutor implements NodeExecutor {
       throw new Error(
         `${model.label} does not support image input. Choose a vision model or disconnect images.`,
       );
-    validateModelParams(params, model, images.length);
+    validateModelParams({ ...params, message: text }, model, images.length);
     const references: MediaInput[] = [];
     for (const image of images) {
       context.signal.throwIfAborted();

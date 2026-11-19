@@ -64,3 +64,17 @@ it('honors timeout and the run abort signal without retrying internally', async 
   await expect(pending).rejects.toThrow('run canceled');
   expect(send).toHaveBeenCalledTimes(2);
 });
+
+it('maps non-JSON HTTP failures using their status', async () => {
+  const mapper = jest.fn(
+    () => new ProviderError('unavailable', true, 'upstream down'),
+  );
+  const http = new ProviderHttp(
+    { ...config, mapError: mapper },
+    jest.fn().mockResolvedValue(new Response('gateway down', { status: 502 })),
+  );
+  await expect(
+    http.post('/', {}, new AbortController().signal),
+  ).rejects.toMatchObject({ code: 'unavailable', retryable: true });
+  expect(mapper).toHaveBeenCalledWith(502, {}, null, undefined);
+});

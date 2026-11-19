@@ -34,3 +34,27 @@ it('uses per-kind deadlines and recovery above the largest timeout', () => {
     validateEnvironment({ ...env, PROVIDER_TIMEOUT_MS: 3000 }).LLM_TIMEOUT_MS,
   ).toBe(3000);
 });
+
+it('validates optional provider config without requiring a key', () => {
+  expect(
+    validateEnvironment({
+      ...env,
+      OPENROUTER_API_KEY: '',
+      OPENROUTER_BASE_URL: '',
+      PROVIDER_CONCURRENCY_OPENROUTER: '',
+    }),
+  ).toMatchObject({
+    OPENROUTER_API_KEY: undefined,
+    OPENROUTER_BASE_URL: 'https://openrouter.ai/api/v1',
+    PROVIDER_CONCURRENCY_OPENROUTER: 2,
+  });
+  for (const patch of [
+    { OPENROUTER_API_KEY: 'bad\nkey' },
+    { OPENROUTER_BASE_URL: 'http://example.com' },
+    { OPENROUTER_BASE_URL: 'https://key@example.com' },
+    { OPENROUTER_APP_URL: 'oops' },
+    { HIVEFLOW_LIVE_CHECK: 'true' },
+    { PROVIDER_CONCURRENCY_OPENROUTER: 0 },
+  ])
+    expect(() => validateEnvironment({ ...env, ...patch })).toThrow();
+});

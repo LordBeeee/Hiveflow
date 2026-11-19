@@ -83,6 +83,15 @@ export class VideoGeneratorExecutor implements NodeExecutor {
                 prompt,
                 model: model.providerModelId,
                 requestId: context.runId!,
+                aspectRatio:
+                  startImage &&
+                  model.capabilities.imageToVideoRatio === 'adaptive'
+                    ? 'adaptive'
+                    : params.aspectRatio,
+                generateAudio:
+                  model.capabilities.audio === 'included'
+                    ? true
+                    : params.generateAudio,
                 startImage,
                 endImage,
               },

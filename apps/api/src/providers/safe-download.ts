@@ -14,6 +14,7 @@ for (const [network, prefix] of [
   ['192.0.0.0', 24],
   ['192.0.2.0', 24],
   ['192.168.0.0', 16],
+  ['192.88.99.0', 24],
   ['198.18.0.0', 15],
   ['198.51.100.0', 24],
   ['203.0.113.0', 24],
@@ -24,6 +25,7 @@ for (const [network, prefix] of [
 blocked.addSubnet('2001::', 23, 'ipv6');
 blocked.addSubnet('2001:db8::', 32, 'ipv6');
 blocked.addSubnet('2002::', 16, 'ipv6');
+blocked.addSubnet('3fff::', 20, 'ipv6');
 export function isPublicAddress(address: string) {
   if (isIP(address) === 4) return !blocked.check(address, 'ipv4');
   // Accept only global unicast IPv6; reject transition/documentation ranges too.
@@ -55,7 +57,19 @@ export async function safeDownload(
     const host = parsed.hostname.replace(/^\[|\]$/g, '');
     const addresses = isIP(host)
       ? [{ address: host, family: isIP(host) }]
-      : await resolve(host, { all: true });
+      : await new Promise<{ address: string; family: number }[]>(
+          (accept, reject) => {
+            const abort = () =>
+              reject(failure('Provider download timed out or was canceled.'));
+            signal.addEventListener('abort', abort, { once: true });
+            resolve(host, { all: true })
+              .then(accept, () =>
+                reject(failure('Provider result DNS lookup failed.')),
+              )
+              .finally(() => signal.removeEventListener('abort', abort));
+            if (signal.aborted) abort();
+          },
+        );
     if (
       !addresses.length ||
       addresses.some(({ address }) => !isPublicAddress(address))

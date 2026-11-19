@@ -1,3 +1,4 @@
+import { registerOpenRouter } from '../providers/openrouter.provider';
 import { DataSource } from 'typeorm';
 import { CostsService } from './costs.service';
 import { CostsController, UsageController } from './costs.controller';
@@ -82,6 +83,7 @@ import { ExecutorRegistry } from '../executors/executor-registry';
           'mock-video',
           new MockVideoProvider(config, db),
         );
+        registerOpenRouter(registry, config);
         return registry;
       },
     },

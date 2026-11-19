@@ -1,3 +1,4 @@
+import type { ProviderUsage } from './provider-usage';
 export interface TtsRequest {
   text: string;
   voice: string;
@@ -10,5 +11,11 @@ export interface TtsProvider {
   synthesize(
     request: TtsRequest,
     signal: AbortSignal,
-  ): Promise<{ bytes: Buffer; mime: string; durationMs: number }>;
+  ): Promise<{
+    bytes: Buffer;
+    mime: string;
+    durationMs: number;
+    usage?: ProviderUsage;
+    generationId?: string;
+  }>;
 }

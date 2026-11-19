@@ -189,9 +189,12 @@ export function VideoGeneratorNode({
                   ? 'Aspect ratio follows the start image'
                   : undefined
               }
-              value={params.aspectRatio}
+              value={adaptiveRatio ? 'adaptive' : params.aspectRatio}
               onChange={(event) => update({ aspectRatio: event.target.value })}
             >
+              {adaptiveRatio && (
+                <option value="adaptive">Auto (start image)</option>
+              )}
               {['16:9', '9:16', '1:1'].map((value) => (
                 <option
                   key={value}

@@ -1,7 +1,7 @@
 import { CostButton } from '../../api/costs';
-import { ModelControls } from '../../api/models';
+import { ModelControls, useModels } from '../../api/models';
 import { useRef, useState } from 'react';
-import { nodeRegistry } from '@hiveflow/shared';
+import { nodeRegistry, selectModel } from '@hiveflow/shared';
 import { Icon } from '../../canvas/Icons';
 import { useExecution } from '../../api/execution';
 import { useRunStore } from '../../store/runs';
@@ -43,6 +43,17 @@ export function ImageGeneratorNode({
   const error = requestError ?? (run?.status === 'failed' ? run.error : null);
   const { prompt, count, aspectRatio, resolution } =
     nodeRegistry.image_generator.paramsSchema.parse(data.graphNode.params);
+  const models = useModels('image');
+  let model: ReturnType<typeof selectModel> | undefined;
+  try {
+    model = selectModel(
+      String(data.graphNode.params.model ?? 'auto'),
+      'image',
+      models.data ?? [],
+    );
+  } catch {
+    /* ModelControls explains availability. */
+  }
   const update = (params: Record<string, unknown>) =>
     useGraphStore.getState().updateParams(id, params);
   return (
@@ -182,13 +193,22 @@ export function ImageGeneratorNode({
             accept="image/png,image/jpeg,image/webp,image/avif,image/gif"
             onChange={(event) => {
               const file = event.target.files?.[0];
-              if (file) void attachReference(id, file).catch(() => {});
+              if (
+                file &&
+                model?.capabilities.maxImageMb &&
+                file.size > model.capabilities.maxImageMb * 1024 * 1024
+              )
+                setModelNotice(
+                  `Reference image exceeds ${model.capabilities.maxImageMb} MB for this model.`,
+                );
+              else if (file) void attachReference(id, file).catch(() => {});
               event.target.value = '';
             }}
           />
           <textarea
             className="nowheel"
             aria-label={`Image Generator #${data.number} prompt`}
+            maxLength={model?.capabilities.maxPromptChars}
             placeholder="Describe the image you want to generate…"
             value={
               promptSource?.type === 'text'

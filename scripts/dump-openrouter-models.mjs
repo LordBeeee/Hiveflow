@@ -40,12 +40,12 @@ for (const [kind, path] of groups) {
       .map((model) => ({
         id: model.id,
         name: model.name,
-        context_length: model.context_length,
+        context_length: model.context_length ?? null,
         top_provider: model.top_provider,
         architecture: model.architecture,
-        supported_voices: model.supported_voices,
+        supported_voices: model.supported_voices ?? null,
         supported_parameters: model.supported_parameters,
-        pricing: model.pricing,
+        pricing: model.pricing ?? null,
         endpoints: model.endpoints,
       }));
     console.log(JSON.stringify({ kind, models: rows }, null, 2));

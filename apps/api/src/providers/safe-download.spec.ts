@@ -71,3 +71,49 @@ it('enforces content-length and streaming limits', async () => {
     })(),
   ).rejects.toThrow('size limit');
 });
+
+it('rejects mixed public/private DNS and bounds a stalled lookup with timeout', async () => {
+  const resolve = jest.fn().mockResolvedValue([
+    { address: '8.8.8.8', family: 4 },
+    { address: '127.0.0.1', family: 4 },
+  ]);
+  await expect(
+    safeDownload('https://provider.example/file', {
+      signal,
+      maxBytes: 10,
+      resolve,
+    }),
+  ).rejects.toThrow('not public');
+  const stalled = jest.fn(() => new Promise<never>(() => {}));
+  await expect(
+    safeDownload('https://provider.example/file', {
+      signal,
+      maxBytes: 10,
+      timeoutMs: 10,
+      resolve: stalled,
+    }),
+  ).rejects.toThrow('timed out');
+});
+it('pins validated DNS to the socket and rechecks a private redirect', async () => {
+  respond({ location: 'https://127.0.0.1/file' }, 302);
+  const resolve = jest
+    .fn()
+    .mockResolvedValue([{ address: '8.8.8.8', family: 4 }]);
+  await expect(
+    safeDownload('https://provider.example/file', {
+      signal,
+      maxBytes: 10,
+      resolve,
+    }),
+  ).rejects.toThrow('not public');
+  const options = (https.request as jest.Mock).mock.calls[0][1] as {
+    lookup: (
+      host: string,
+      options: { all: boolean },
+      callback: (...args: unknown[]) => void,
+    ) => void;
+  };
+  const callback = jest.fn();
+  options.lookup('provider.example', { all: false }, callback);
+  expect(callback).toHaveBeenCalledWith(null, '8.8.8.8', 4);
+});
