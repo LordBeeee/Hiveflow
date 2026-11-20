@@ -32,7 +32,7 @@ export function SpacesPage() {
     >
       <div className="spaces-heading">
         <div>
-          <div className="spaces-breadcrumb">Personal project /</div>
+          <div className="spaces-breadcrumb">Workspace /</div>
           <h1>
             Spaces
             <span className="spaces-count">{spaces.data?.length ?? 0}</span>

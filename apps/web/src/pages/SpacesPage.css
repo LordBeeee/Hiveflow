@@ -118,34 +118,10 @@ body:has(.spaces-page) {
 }
 
 .workspace-switcher {
-  position: absolute;
-  top: 32px;
-  left: 132px;
+  position: fixed;
+  top: 99px;
+  left: 80px;
   z-index: 30;
-}
-
-.workspace-trigger {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 36px;
-  padding: 6px 9px;
-  border: 0;
-  border-radius: 9px;
-  background: transparent;
-  font-size: 14px;
-  color: #555;
-}
-
-.workspace-trigger:hover,
-.workspace-trigger[aria-expanded='true'] {
-  background: #f5f5f5;
-}
-
-.workspace-trigger > svg {
-  margin-left: 12px;
-  background: #eee;
-  border-radius: 5px;
 }
 
 .project-dot {
@@ -157,10 +133,9 @@ body:has(.spaces-page) {
 }
 
 .workspace-popover {
-  position: absolute;
-  top: calc(100% + 14px);
-  left: -10px;
   width: 280px;
+  max-height: calc(100dvh - 111px);
+  overflow-y: auto;
   padding: 12px 0 0;
   border: 1px solid #e8e8e8;
   border-radius: 20px;
@@ -168,7 +143,6 @@ body:has(.spaces-page) {
   box-shadow:
     0 14px 32px #0000001a,
     0 2px 5px #00000008;
-  overflow: hidden;
 }
 
 .popover-project {
@@ -579,7 +553,7 @@ body:has(.spaces-page) {
     width: 66px;
   }
   .workspace-switcher {
-    left: 103px;
+    left: 70px;
   }
   .workspace-header-label {
     display: none;
@@ -604,7 +578,7 @@ body:has(.spaces-page) {
     display: none;
   }
   .workspace-popover {
-    width: min(280px, calc(100vw - 106px));
+    width: min(280px, calc(100vw - 90px));
   }
   .project-caption {
     display: none;
@@ -623,10 +597,6 @@ body:has(.spaces-page) {
 
 @media (max-height: 650px) {
   .workspace-rail {
-    overflow-y: auto;
-  }
-  .workspace-popover {
-    max-height: calc(100dvh - 105px);
     overflow-y: auto;
   }
 }

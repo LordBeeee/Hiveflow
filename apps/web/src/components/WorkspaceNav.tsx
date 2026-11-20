@@ -52,6 +52,7 @@ export function WorkspaceNav({
           <img src="/brand/hiveflow-icon-transparent.png" alt="Hiveflow" />
         </a>
         <button
+          ref={trigger}
           className="rail-create"
           aria-label="Create something new"
           aria-expanded={open}
@@ -98,17 +99,6 @@ export function WorkspaceNav({
         </span>
       </aside>
       <div className="workspace-switcher">
-        <button
-          ref={trigger}
-          className="workspace-trigger"
-          aria-expanded={open}
-          aria-controls="workspace-popover"
-          onClick={() => setOpen(!open)}
-        >
-          <span className="project-dot" />
-          Personal project
-          <Icon name="chevron" size={17} />
-        </button>
         {open && (
           <div
             className="workspace-popover"
