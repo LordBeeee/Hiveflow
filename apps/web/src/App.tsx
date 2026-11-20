@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { spaceSummarySchema } from '@hiveflow/shared';
 import { SpacesPage } from './pages/SpacesPage';
 import { SpacePage } from './pages/SpacePage';
+import { LibraryPage } from './pages/LibraryPage';
 import '@xyflow/react/dist/style.css';
 
 const queryClient = new QueryClient({
@@ -14,6 +15,8 @@ export function App() {
   const content =
     path === '/' || path === '/spaces' ? (
       <SpacesPage />
+    ) : /^\/library\/?$/.test(path) ? (
+      <LibraryPage />
     ) : id && id.success ? (
       <SpacePage id={id.data} />
     ) : (

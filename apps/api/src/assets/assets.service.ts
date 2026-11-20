@@ -8,7 +8,7 @@ import { Repository } from 'typeorm';
 import { createHash, randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
 import sharp, { type OutputInfo } from 'sharp';
-import { assetSchema, type Asset } from '@hiveflow/shared';
+import { assetSchema, type Asset, type LibraryQuery } from '@hiveflow/shared';
 import { ConfigService } from '@nestjs/config';
 import {
   readBounded,
@@ -18,6 +18,7 @@ import {
 } from './media-input';
 import type { User } from '../auth/current-user';
 import { SpacesService } from '../spaces/spaces.service';
+import { SpaceEntity } from '../spaces/space.entity';
 import { AssetEntity } from './asset.entity';
 import { StorageService } from './storage.service';
 
@@ -59,6 +60,32 @@ export class AssetsService {
     private readonly spaces: SpacesService,
     private readonly config: ConfigService = new ConfigService(),
   ) {}
+  async list(user: User, input: LibraryQuery) {
+    const query = this.assets
+      .createQueryBuilder('asset')
+      .innerJoin(SpaceEntity, 'space', 'space.id = asset.spaceId')
+      .addSelect('space.name', 'spaceName')
+      .where('space.userId = :userId', { userId: user.id });
+    if (input.kind) query.andWhere('asset.kind = :kind', { kind: input.kind });
+    if (input.spaceId)
+      query.andWhere('asset.spaceId = :spaceId', { spaceId: input.spaceId });
+    const total = await query.getCount();
+    const { entities, raw } = await query
+      .orderBy('asset.createdAt', 'DESC')
+      .addOrderBy('asset.id', 'DESC')
+      .offset(input.offset)
+      .limit(input.limit)
+      .getRawAndEntities<{ spaceName: string }>();
+    return {
+      items: entities.map((asset, index) => ({
+        asset: dto(asset),
+        spaceName: raw[index].spaceName,
+      })),
+      total,
+      offset: input.offset,
+      limit: input.limit,
+    };
+  }
   async upload(
     user: User,
     spaceId: string,

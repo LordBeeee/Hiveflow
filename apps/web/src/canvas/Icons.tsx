@@ -1,4 +1,12 @@
 export type IconName =
+  | 'library'
+  | 'download'
+  | 'home'
+  | 'spaces'
+  | 'grid'
+  | 'design'
+  | 'motion'
+  | 'cube'
   | 'video'
   | 'audio'
   | 'plus'
@@ -17,6 +25,20 @@ export type IconName =
   | 'close'
   | 'search';
 const paths: Record<IconName, React.ReactNode> = {
+  library: <path d="M3 4h4v16H3zM10 4h4v16h-4zM17 5l3-1 4 15-3 1-4-15Z" />,
+  download: <path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" />,
+  home: <path d="m3 10 9-7 9 7M5 9v12h5v-7h4v7h5V9" />,
+  spaces: (
+    <>
+      <rect x="3" y="13" width="7" height="7" rx="2" />
+      <rect x="14" y="3" width="7" height="7" rx="2" />
+      <path d="M7 13V8a2 2 0 0 1 2-2h5m3 4v6a2 2 0 0 1-2 2h-5" />
+    </>
+  ),
+  grid: <path d="M3 3h6v6H3zM15 3h6v6h-6zM3 15h6v6H3zM15 15h6v6h-6z" />,
+  design: <path d="M4 3h16v18H4zM4 8h16M9 8v13m3-10 6 3-3 1-1 3-2-7Z" />,
+  motion: <path d="M3 5h4l4 14 4-14h6M3 12h5m8 0h5M9 21h7" />,
+  cube: <path d="m12 3 9 5v9l-9 5-9-5V8l9-5Zm0 10 9-5M12 13 3 8m9 5v9" />,
   video: (
     <>
       <rect x="3" y="5" width="13" height="14" rx="3" />

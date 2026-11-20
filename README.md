@@ -72,6 +72,14 @@ If another tab saves first, your tab keeps its local edits and stops writing. Ch
 
 Graph writes validate node params, port compatibility, existing endpoints, duplicate IDs/edges, and cycles. Invalid input returns 400 with `errors: [{ path, message }]`. PATCH requires the current `version`; stale versions return 409. The prototype uses a fixed dev user while retaining ownership checks on every Space operation.
 
+## Media Library
+
+Open **Library** in the workspace sidebar (`/library`) to browse uploaded and generated images, videos and audio from your Spaces. Filter by media type or source Space; results are ordered newest first and paginated in groups of 24. Open a card to preview media, download the original stored file, or open its source Space. The existing search field on the Spaces page still searches Space names.
+
+Library uses existing asset metadata and storage. `GET /api/assets` accepts optional `kind`, `spaceId`, `offset` and `limit` (1–100, default 24), and returns only assets belonging to the current user through their existing Spaces. Deleted Spaces and their media are excluded. `GET /api/assets/:id?download=1` serves an attachment with the same ownership and Range checks as inline playback. Direct Library uploads and cross-Space asset reuse are outside this version.
+
+After building shared and API, `node apps/api/scripts/smoke-library.mjs` checks the real PostgreSQL query and an isolated HTTP controller. It creates and removes only its own fixtures, uses an in-memory download stream, and starts no workers or providers. `npm run test:e2e -w @hiveflow/web -- library.spec.ts` checks the Library UI with mocked API responses and local media fixtures.
+
 ## Using the canvas
 
 - Click **+** in the left toolbar or press **N** to open the node picker. Search by name/keyword, filter by Image or Text, navigate with **↑/↓**, and press **Enter** to insert. Search ignores case and diacritics. **Esc** closes the picker and restores focus to **+**. Insertion uses the current viewport with an offset for repeated additions; **Ctrl/Cmd+Z** undoes one insertion. N is ignored while typing in text fields or holding Ctrl/Cmd/Alt. Each new Space starts with a Text node and an Image Generator.

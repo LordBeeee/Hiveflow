@@ -7,6 +7,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   Res,
   StreamableFile,
   UploadedFile,
@@ -14,7 +15,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
-import { uploadRequestSchema } from '@hiveflow/shared';
+import { uploadRequestSchema, libraryQuerySchema } from '@hiveflow/shared';
 import { CurrentUser, type User } from '../auth/current-user';
 import { mediaExtensions } from './media-input';
 import { AssetsService } from './assets.service';
@@ -23,6 +24,12 @@ import { byteRange } from './byte-range';
 @Controller('assets')
 export class AssetsController {
   constructor(private readonly assets: AssetsService) {}
+  @Get() list(@CurrentUser() user: User, @Query() query: unknown) {
+    const parsed = libraryQuerySchema.safeParse(query);
+    if (!parsed.success)
+      throw new BadRequestException('Invalid library filters or pagination.');
+    return this.assets.list(user, parsed.data);
+  }
   @Post()
   @UseInterceptors(FileInterceptor('file'))
   upload(
@@ -54,6 +61,7 @@ export class AssetsController {
     @Res({ passthrough: true }) response: Response,
     @Headers('range') rangeHeader?: string,
     @Headers('if-range') ifRange?: string,
+    @Query('download') download?: string,
   ) {
     const asset = await this.assets.owned(user, id);
     const etag = `"${asset.sha256}"`;
@@ -87,7 +95,7 @@ export class AssetsController {
       'Content-Length': String(
         range ? range.end - range.start + 1 : asset.sizeBytes,
       ),
-      'Content-Disposition': `inline; filename="${asset.id}.${mediaExtensions[asset.mime]}"`,
+      'Content-Disposition': `${download === '1' ? 'attachment' : 'inline'}; filename="${asset.id}.${mediaExtensions[asset.mime]}"`,
       'Cache-Control':
         asset.kind === 'image' ? 'private, no-store' : 'private, max-age=3600',
       'X-Content-Type-Options': 'nosniff',
