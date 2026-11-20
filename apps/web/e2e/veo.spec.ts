@@ -12,7 +12,7 @@ test('Veo supports text-only and first/last frames with explicit ratio, duration
       for (const row of rows) if (row.provider === 'veo') row.available = true;
       await route.fulfill({ response, json: rows });
     });
-    await page.goto('/');
+    await page.goto('/spaces');
     await page.getByLabel('New space name').fill(`E2E Veo ${Date.now()}`);
     await page.getByRole('button', { name: 'New space', exact: true }).click();
     await expect(page).toHaveURL(/\/spaces\/[a-f0-9-]+$/);

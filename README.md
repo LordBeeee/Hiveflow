@@ -66,7 +66,7 @@ CI uses `npm ci`, then build, typecheck, lint, and unit tests. It prepares Postg
 
 ## Saved Spaces
 
-Open the home page to create, open, or delete a Space. Each Space has a permanent `/spaces/:id` URL. Rename it in the canvas header. Edits and viewport changes autosave after approximately 800 ms, with one request in flight at a time. The header shows Saved, Unsaved changes, Saving, Save failed, or Conflict.
+Home (`/`) offers Image, Video and Audio shortcuts and a short getting-started guide. Each shortcut reuses the existing Space creation flow with the corresponding node. Open **Spaces** in the sidebar (`/spaces`) to search, create, open, or delete a Space. Home and Spaces have separate sidebar selection states; editor back navigation returns to `/spaces`. Each Space has a permanent `/spaces/:id` URL. Rename it in the canvas header. Edits and viewport changes autosave after approximately 800 ms, with one request in flight at a time. The header shows Saved, Unsaved changes, Saving, Save failed, or Conflict.
 
 If another tab saves first, your tab keeps its local edits and stops writing. Choose **Reload saved version** to discard the local edits, or **Save as copy** to preserve them in a new Space. A failed save has a **Retry save** control. **Spaces** in the header waits for pending saves before returning to the list. The browser also guards navigation while changes remain unsaved; browser settings and user activation determine how the native warning is displayed.
 

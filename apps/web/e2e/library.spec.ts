@@ -99,7 +99,7 @@ test('Library replaces sidebar search, paginates, filters and previews playable 
 }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('/');
+  await page.goto('/spaces');
   await expect(
     page.getByRole('button', { name: 'Search spaces', exact: true }),
   ).toHaveCount(0);

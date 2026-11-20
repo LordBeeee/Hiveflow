@@ -5,7 +5,7 @@ test('Run all reviews cost before admission, cancel is free, cache costs zero an
 }) => {
   let id: string | undefined;
   try {
-    await page.goto('/');
+    await page.goto('/spaces');
     await page
       .getByLabel('New space name')
       .fill(`E2E cost review ${Date.now()}`);

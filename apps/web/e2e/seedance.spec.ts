@@ -13,7 +13,7 @@ test('Seedance controls support 4K/30s, adaptive frame ratio and end-frame valid
         if (row.provider === 'seedance') row.available = true;
       await route.fulfill({ response, json: rows });
     });
-    await page.goto('/');
+    await page.goto('/spaces');
     await page.getByLabel('New space name').fill(`E2E Seedance ${Date.now()}`);
     await page.getByRole('button', { name: 'New space', exact: true }).click();
     await expect(page).toHaveURL(/\/spaces\/[a-f0-9-]+$/);

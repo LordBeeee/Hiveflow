@@ -5,7 +5,7 @@ test('model availability, capability coercion, options, undo and retired-model r
 }) => {
   let id: string | undefined;
   try {
-    await page.goto('/');
+    await page.goto('/spaces');
     await page
       .getByLabel('New space name')
       .fill(`E2E model catalog ${Date.now()}`);

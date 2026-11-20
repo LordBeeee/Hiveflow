@@ -5,7 +5,7 @@ test('keyboard picker inserts and undoes one node, filters categories and traps 
 }) => {
   let spaceId: string | undefined;
   try {
-    await page.goto('/');
+    await page.goto('/spaces');
     await page.getByLabel('New space name').fill(`E2E picker ${Date.now()}`);
     await page.getByRole('button', { name: 'New space', exact: true }).click();
     await expect(page).toHaveURL(/\/spaces\/[a-f0-9-]+$/);
@@ -78,7 +78,7 @@ test('dropping an input on empty canvas filters compatible nodes and inserts an 
 }) => {
   let spaceId: string | undefined;
   try {
-    await page.goto('/');
+    await page.goto('/spaces');
     await page
       .getByLabel('New space name')
       .fill(`E2E edge picker ${Date.now()}`);

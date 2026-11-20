@@ -27,7 +27,7 @@ test('provider capabilities disable speed, require start image and derive adapti
       }
       await route.fulfill({ response, json: models });
     });
-    await page.goto('/');
+    await page.goto('/spaces');
     await page
       .getByLabel('New space name')
       .fill(`E2E provider capabilities ${Date.now()}`);

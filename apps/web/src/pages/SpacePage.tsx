@@ -107,7 +107,7 @@ function SpaceEditor({ space }: { space: SpaceDocument }) {
     try {
       await execution.waitForUploads();
       await controllerRef.current?.flush();
-      window.location.assign('/');
+      window.location.assign('/spaces');
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Save failed');
       setWorking(false);
@@ -135,7 +135,7 @@ function SpaceEditor({ space }: { space: SpaceDocument }) {
       <div className="page-message" role="alert">
         <h1>This space could not be opened.</h1>
         <p>{loadError}</p>
-        <a href="/">Back to spaces</a>
+        <a href="/spaces">Back to spaces</a>
       </div>
     );
   if (!ready)
@@ -272,7 +272,7 @@ export function SpacePage({ id }: { id: string }) {
         >
           Retry
         </button>
-        <a href="/">Back to spaces</a>
+        <a href="/spaces">Back to spaces</a>
       </div>
     );
   return <SpaceEditor space={space.data} />;

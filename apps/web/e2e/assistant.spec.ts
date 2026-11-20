@@ -8,7 +8,7 @@ test('Assistant picker, chained Run all, copy, cache, stale and cancel', async (
   let id: string | undefined;
   try {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-    await page.goto('/');
+    await page.goto('/spaces');
     await page.getByLabel('New space name').fill(`E2E assistant ${Date.now()}`);
     await page.getByRole('button', { name: 'New space', exact: true }).click();
     await expect(page).toHaveURL(/\/spaces\/[a-f0-9-]+$/);

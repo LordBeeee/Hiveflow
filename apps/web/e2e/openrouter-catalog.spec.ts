@@ -14,7 +14,7 @@ test('chosen catalog exposes constrained image settings and correct speech contr
           row.available = true;
       await route.fulfill({ response, json: rows });
     });
-    await page.goto('/');
+    await page.goto('/spaces');
     await page
       .getByLabel('New space name')
       .fill(`E2E chosen catalog ${Date.now()}`);

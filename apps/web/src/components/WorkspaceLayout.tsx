@@ -9,7 +9,7 @@ export function WorkspaceLayout({
   onCreate,
   children,
 }: {
-  active: 'spaces' | 'library';
+  active: 'home' | 'spaces' | 'library';
   creating: boolean;
   onCreate: (type?: NodeType) => void;
   children: ReactNode;

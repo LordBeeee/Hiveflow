@@ -7,7 +7,7 @@ test('Voiceover model coercion, script-writer workflow, audio playback, cache, s
 }) => {
   let id: string | undefined;
   try {
-    await page.goto('/');
+    await page.goto('/spaces');
     await page.getByLabel('New space name').fill(`E2E voiceover ${Date.now()}`);
     await page.getByRole('button', { name: 'New space', exact: true }).click();
     await expect(page).toHaveURL(/\/spaces\/[a-f0-9-]+$/);

@@ -1,18 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { NodeType } from '@hiveflow/shared';
-import { Icon, type IconName } from '../canvas/Icons';
-
-const tools: {
-  label: string;
-  icon: IconName;
-  type?: NodeType;
-  color: string;
-}[] = [
-  { label: 'Space', icon: 'spaces', color: 'purple' },
-  { label: 'Image', icon: 'image', type: 'image_generator', color: 'blue' },
-  { label: 'Video', icon: 'video', type: 'video_generator', color: 'green' },
-  { label: 'Audio', icon: 'audio', type: 'voiceover', color: 'teal' },
-];
+import { Icon } from '../canvas/Icons';
+import { creationTools, workspaceTools } from './workspaceTools';
 
 export function WorkspaceNav({
   onCreate,
@@ -21,7 +10,7 @@ export function WorkspaceNav({
 }: {
   onCreate: (type?: NodeType) => void;
   creating: boolean;
-  active: 'spaces' | 'library';
+  active: 'home' | 'spaces' | 'library';
 }) {
   const [open, setOpen] = useState(false);
   const container = useRef<HTMLDivElement>(null);
@@ -61,7 +50,13 @@ export function WorkspaceNav({
         >
           <Icon name="plus" size={24} />
         </button>
-        <a href="/" aria-label="Home" title="Home">
+        <a
+          href="/"
+          aria-label="Home"
+          title="Home"
+          className={active === 'home' ? 'rail-active' : undefined}
+          aria-current={active === 'home' ? 'page' : undefined}
+        >
           <Icon name="home" size={21} />
         </a>
         <a
@@ -83,7 +78,7 @@ export function WorkspaceNav({
         >
           <Icon name="spaces" size={22} />
         </a>
-        {tools.slice(1).map((tool) => (
+        {creationTools.map((tool) => (
           <button
             key={tool.label}
             aria-label={`Create ${tool.label.toLowerCase()} space`}
@@ -110,7 +105,7 @@ export function WorkspaceNav({
               Personal project<span className="project-caption">Workspace</span>
             </div>
             <div className="workspace-tool-list">
-              {tools.map((tool) => (
+              {workspaceTools.map((tool) => (
                 <button
                   key={tool.label}
                   disabled={creating}
