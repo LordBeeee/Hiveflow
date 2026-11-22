@@ -84,8 +84,7 @@ body:has(.spaces-page) {
   background: #ededed;
 }
 
-.rail-bottom,
-.workspace-profile {
+.rail-bottom {
   display: grid;
   place-items: center;
   width: 33px;
@@ -568,9 +567,6 @@ body:has(.spaces-page) {
 @media (max-width: 480px) {
   .workspace-header {
     padding-right: 12px;
-  }
-  .workspace-profile {
-    display: none;
   }
   .workspace-popover {
     width: min(280px, calc(100vw - 90px));
