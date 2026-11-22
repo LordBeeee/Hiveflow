@@ -111,12 +111,6 @@ body:has(.spaces-page) {
   background: #fff;
 }
 
-.workspace-header-label {
-  font-size: 10px;
-  letter-spacing: 1.5px;
-  color: #999;
-}
-
 .workspace-switcher {
   position: fixed;
   top: 99px;
@@ -558,9 +552,6 @@ body:has(.spaces-page) {
   }
   .workspace-switcher {
     left: 70px;
-  }
-  .workspace-header-label {
-    display: none;
   }
   .spaces-page .spaces-content {
     padding: 24px 22px 40px;

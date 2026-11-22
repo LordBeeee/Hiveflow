@@ -17,7 +17,6 @@ export function WorkspaceLayout({
     <div className="spaces-page">
       <WorkspaceNav active={active} creating={creating} onCreate={onCreate} />
       <header className="workspace-header">
-        <span className="workspace-header-label">YOUR WORKSPACE</span>
         <span className="workspace-profile" title="Personal workspace">
           H
         </span>
