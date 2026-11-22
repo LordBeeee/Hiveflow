@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import type { NodeType } from '@hiveflow/shared';
 import { Icon } from '../canvas/Icons';
 import { creationTools, workspaceTools } from './workspaceTools';
 
@@ -8,9 +7,9 @@ export function WorkspaceNav({
   creating,
   active,
 }: {
-  onCreate: (type?: NodeType) => void;
+  onCreate: () => void;
   creating: boolean;
-  active: 'home' | 'spaces' | 'library';
+  active: 'home' | 'spaces' | 'library' | 'image' | 'video' | 'audio';
 }) {
   const [open, setOpen] = useState(false);
   const container = useRef<HTMLDivElement>(null);
@@ -79,15 +78,20 @@ export function WorkspaceNav({
           <Icon name="spaces" size={22} />
         </a>
         {creationTools.map((tool) => (
-          <button
+          <a
             key={tool.label}
-            aria-label={`Create ${tool.label.toLowerCase()} space`}
-            title={`Create ${tool.label.toLowerCase()} space`}
-            disabled={creating}
-            onClick={() => onCreate(tool.type)}
+            href={tool.href}
+            aria-label={tool.label}
+            title={tool.label}
+            className={
+              active === tool.href?.split('/').pop() ? 'rail-active' : undefined
+            }
+            aria-current={
+              active === tool.href?.split('/').pop() ? 'page' : undefined
+            }
           >
             <Icon name={tool.icon} size={21} />
-          </button>
+          </a>
         ))}
         <span className="rail-bottom" title="Personal workspace">
           H
@@ -105,21 +109,30 @@ export function WorkspaceNav({
               Personal project<span className="project-caption">Workspace</span>
             </div>
             <div className="workspace-tool-list">
-              {workspaceTools.map((tool) => (
-                <button
-                  key={tool.label}
-                  disabled={creating}
-                  onClick={() => {
-                    setOpen(false);
-                    onCreate(tool.type);
-                  }}
-                >
-                  <span className={`tool-color-${tool.color}`}>
-                    <Icon name={tool.icon} size={20} />
-                  </span>
-                  {tool.label}
-                </button>
-              ))}
+              {workspaceTools.map((tool) =>
+                tool.href ? (
+                  <a key={tool.label} href={tool.href}>
+                    <span className={`tool-color-${tool.color}`}>
+                      <Icon name={tool.icon} size={20} />
+                    </span>
+                    {tool.label}
+                  </a>
+                ) : (
+                  <button
+                    key={tool.label}
+                    disabled={creating}
+                    onClick={() => {
+                      setOpen(false);
+                      onCreate();
+                    }}
+                  >
+                    <span className={`tool-color-${tool.color}`}>
+                      <Icon name={tool.icon} size={20} />
+                    </span>
+                    {tool.label}
+                  </button>
+                ),
+              )}
               {(
                 [
                   { label: 'Design', icon: 'design' },

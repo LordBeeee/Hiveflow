@@ -104,10 +104,24 @@ export class RunsService {
       throw new BadRequestException(
         'Save valid node parameters before running.',
       );
-    const prepared = this.prepare(
+    return this.startResolved(
+      user,
+      spaceId,
       { ...node, params: parsed.data },
       await this.inputResolver.resolve(spaceId, space.graph, node),
+      force,
     );
+  }
+  // Internal admission shared by saved workflows and standalone tool sessions.
+  async startResolved(
+    user: User,
+    spaceId: string,
+    node: GraphNode,
+    resolved: ResolvedInputs,
+    force = false,
+  ) {
+    const nodeId = node.id;
+    const prepared = this.prepare(node, resolved);
     const { inputs } = prepared;
     const hash = await executionHash(node.type, prepared.params, inputs);
     const cached =
@@ -378,10 +392,18 @@ export class RunsService {
     const run = await this.runs.findOneBy({ id });
     if (run) this.events.emit(runDto(run));
   }
+  snapshot(run: NodeRunEntity) {
+    return {
+      ...runDto(run),
+      ...(this.progress.has(run.id)
+        ? { progress: this.progress.get(run.id) }
+        : {}),
+    };
+  }
   async cancel(user: User, id: string) {
     const run = await this.runs.findOneBy({ id });
     if (!run) throw new NotFoundException('Run not found');
-    await this.spaces.get(user, run.spaceId);
+    await this.spaces.ownedContext(user, run.spaceId);
     await this.cancelIds([id]);
     return runDto(await this.runs.findOneByOrFail({ id }));
   }

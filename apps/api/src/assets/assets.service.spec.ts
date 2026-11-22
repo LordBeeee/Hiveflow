@@ -24,7 +24,8 @@ function setup(config = new ConfigService()) {
     create: jest.fn((value) => value),
     save: jest.fn(async (value) => ({ ...value, createdAt: new Date() })),
   };
-  const spaces = { get: jest.fn().mockResolvedValue({}) };
+  const get = jest.fn().mockResolvedValue({});
+  const spaces = { get, ownedContext: get };
   const service = new AssetsService(
     assets as unknown as Repository<AssetEntity>,
     storage as unknown as StorageService,

@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import type { NodeType } from '@hiveflow/shared';
 import { WorkspaceNav } from './WorkspaceNav';
 import '../pages/SpacesPage.css';
 
@@ -9,9 +8,9 @@ export function WorkspaceLayout({
   onCreate,
   children,
 }: {
-  active: 'home' | 'spaces' | 'library';
+  active: 'home' | 'spaces' | 'library' | 'image' | 'video' | 'audio';
   creating: boolean;
-  onCreate: (type?: NodeType) => void;
+  onCreate: () => void;
   children: ReactNode;
 }) {
   return (

@@ -113,7 +113,14 @@ function MediaPreview({
             <span>{new Date(asset.createdAt).toLocaleString()}</span>
           </div>
           <div className="preview-actions">
-            <a href={`/spaces/${asset.spaceId}`}>Open source Space</a>
+            {item.sourceKind && item.sourceKind !== 'space' ? (
+              <a href={`/create/${item.sourceKind}`}>
+                Open {item.sourceKind === 'audio' ? 'voice' : item.sourceKind}{' '}
+                tool
+              </a>
+            ) : (
+              <a href={`/spaces/${asset.spaceId}`}>Open source Space</a>
+            )}
             <a className="library-download" href={`${asset.url}?download=1`}>
               <Icon name="download" size={16} />
               Download
@@ -151,8 +158,8 @@ export function LibraryPage() {
     <WorkspaceLayout
       active="library"
       creating={create.isPending}
-      onCreate={(type) => {
-        if (!create.isPending) create.mutate(type);
+      onCreate={() => {
+        if (!create.isPending) create.mutate();
       }}
     >
       <div className="spaces-heading">
@@ -243,7 +250,9 @@ export function LibraryPage() {
               ? 'No matching media yet.'
               : 'Your library starts here.'}
           </h2>
-          <p>Media you upload or generate in a Space will appear here.</p>
+          <p>
+            Media you upload or generate in a tool or Space will appear here.
+          </p>
           {(kind || spaceId) && (
             <button
               className="clear-search"

@@ -1,15 +1,17 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+const apiTarget = process.env.API_PROXY_TARGET ?? 'http://localhost:3000';
+
 export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
     strictPort: true,
     proxy: {
-      '/health': 'http://localhost:3000',
+      '/health': apiTarget,
       '/api': {
-        target: 'http://localhost:3000',
+        target: apiTarget,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },

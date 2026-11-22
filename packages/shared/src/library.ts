@@ -13,6 +13,7 @@ export const libraryQuerySchema = z
 export const libraryItemSchema = z.object({
   asset: assetSchema,
   spaceName: z.string(),
+  sourceKind: z.enum(['space', 'image', 'video', 'audio']).optional(),
 });
 export const libraryPageSchema = z.object({
   items: libraryItemSchema.array(),

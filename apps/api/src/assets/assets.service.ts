@@ -18,7 +18,6 @@ import {
 } from './media-input';
 import type { User } from '../auth/current-user';
 import { SpacesService } from '../spaces/spaces.service';
-import { SpaceEntity } from '../spaces/space.entity';
 import { AssetEntity } from './asset.entity';
 import { StorageService } from './storage.service';
 
@@ -63,9 +62,10 @@ export class AssetsService {
   async list(user: User, input: LibraryQuery) {
     const query = this.assets
       .createQueryBuilder('asset')
-      .innerJoin(SpaceEntity, 'space', 'space.id = asset.spaceId')
+      .innerJoin('execution_contexts', 'space', 'space.id = asset.spaceId')
       .addSelect('space.name', 'spaceName')
-      .where('space.userId = :userId', { userId: user.id });
+      .addSelect('space.kind', 'sourceKind')
+      .where('space.user_id = :userId', { userId: user.id });
     if (input.kind) query.andWhere('asset.kind = :kind', { kind: input.kind });
     if (input.spaceId)
       query.andWhere('asset.spaceId = :spaceId', { spaceId: input.spaceId });
@@ -75,11 +75,12 @@ export class AssetsService {
       .addOrderBy('asset.id', 'DESC')
       .offset(input.offset)
       .limit(input.limit)
-      .getRawAndEntities<{ spaceName: string }>();
+      .getRawAndEntities<{ spaceName: string; sourceKind: string }>();
     return {
       items: entities.map((asset, index) => ({
         asset: dto(asset),
         spaceName: raw[index].spaceName,
+        sourceKind: raw[index].sourceKind,
       })),
       total,
       offset: input.offset,
@@ -92,7 +93,7 @@ export class AssetsService {
     bytes: Buffer,
     declaredMime: string,
   ): Promise<Asset> {
-    await this.spaces.get(user, spaceId);
+    await this.spaces.ownedContext(user, spaceId);
     if (!IMAGE_MIME_TYPES.includes(declaredMime))
       throw new BadRequestException(
         'Choose a PNG, JPEG, WebP, AVIF or GIF image.',
@@ -333,7 +334,7 @@ export class AssetsService {
   async owned(user: User, id: string): Promise<AssetEntity> {
     const asset = await this.assets.findOneBy({ id });
     if (!asset) throw new NotFoundException('Image not found');
-    await this.spaces.get(user, asset.spaceId);
+    await this.spaces.ownedContext(user, asset.spaceId);
     return asset;
   }
   async providerReference(spaceId: string, id: string) {

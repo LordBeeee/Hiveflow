@@ -26,8 +26,8 @@ export function SpacesPage() {
     <WorkspaceLayout
       active="spaces"
       creating={create.isPending}
-      onCreate={(type) => {
-        if (!create.isPending) create.mutate(type);
+      onCreate={() => {
+        if (!create.isPending) create.mutate();
       }}
     >
       <div className="spaces-heading">

@@ -46,6 +46,17 @@ export class SpacesService {
     @InjectRepository(SpaceEntity)
     private readonly spaces: Repository<SpaceEntity>,
   ) {}
+  async ownedContext(user: User, id: string) {
+    const [context] = await this.spaces.query(
+      'SELECT id,kind FROM execution_contexts WHERE id=$1 AND user_id=$2',
+      [id, user.id],
+    );
+    if (!context) throw new NotFoundException('Media context not found');
+    return context as {
+      id: string;
+      kind: 'space' | 'image' | 'video' | 'audio';
+    };
+  }
 
   async create(user: User, body: CreateSpaceInput): Promise<SpaceDocument> {
     const graph = body.graph ?? emptyGraph();

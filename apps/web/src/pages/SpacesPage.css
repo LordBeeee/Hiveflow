@@ -163,7 +163,8 @@ body:has(.spaces-page) {
   padding: 0 10px 10px;
 }
 
-.workspace-tool-list button {
+.workspace-tool-list button,
+.workspace-tool-list a {
   display: flex;
   align-items: center;
   gap: 18px;
@@ -176,9 +177,11 @@ body:has(.spaces-page) {
   background: transparent;
   text-align: left;
   font-size: 14px;
+  text-decoration: none;
 }
 
-.workspace-tool-list button:hover:not(:disabled) {
+.workspace-tool-list button:hover:not(:disabled),
+.workspace-tool-list a:hover {
   background: #f5f5f5;
 }
 
@@ -187,7 +190,8 @@ body:has(.spaces-page) {
   color: #999;
 }
 
-.workspace-tool-list button > span:first-child {
+.workspace-tool-list button > span:first-child,
+.workspace-tool-list a > span:first-child {
   display: flex;
 }
 

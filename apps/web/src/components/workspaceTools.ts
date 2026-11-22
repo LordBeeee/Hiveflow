@@ -7,6 +7,7 @@ interface WorkspaceTool {
   type?: NodeType;
   color: string;
   description: string;
+  href?: string;
 }
 
 export const creationTools: WorkspaceTool[] = [
@@ -14,6 +15,7 @@ export const creationTools: WorkspaceTool[] = [
     label: 'Image',
     icon: 'image',
     type: 'image_generator',
+    href: '/create/image',
     color: 'blue',
     description: 'Turn your ideas into images with a prompt and references.',
   },
@@ -21,13 +23,15 @@ export const creationTools: WorkspaceTool[] = [
     label: 'Video',
     icon: 'video',
     type: 'video_generator',
+    href: '/create/video',
     color: 'green',
     description: 'Bring a scene to life with a prompt or a starting image.',
   },
   {
-    label: 'Audio',
+    label: 'Voice',
     icon: 'audio',
     type: 'voiceover',
+    href: '/create/audio',
     color: 'teal',
     description: 'Give your words a voice with text-to-speech.',
   },

@@ -10,8 +10,8 @@ export function HomePage() {
     <WorkspaceLayout
       active="home"
       creating={create.isPending}
-      onCreate={(type) => {
-        if (!create.isPending) create.mutate(type);
+      onCreate={() => {
+        if (!create.isPending) create.mutate();
       }}
     >
       <div className="home-content">
@@ -34,13 +34,10 @@ export function HomePage() {
         )}
         <div className="home-tools" aria-label="Creative tools">
           {creationTools.map((tool) => (
-            <button
+            <a
+              href={tool.href}
               key={tool.label}
               className={`home-tool home-tool-${tool.color}`}
-              disabled={create.isPending}
-              onClick={() => {
-                if (!create.isPending) create.mutate(tool.type);
-              }}
               aria-label={`Create ${tool.label.toLowerCase()}`}
             >
               <span className={`home-tool-art tool-color-${tool.color}`}>
@@ -57,7 +54,7 @@ export function HomePage() {
                   {tool.description}
                 </span>
               </span>
-            </button>
+            </a>
           ))}
         </div>
         <section className="home-guide" aria-labelledby="home-guide-title">

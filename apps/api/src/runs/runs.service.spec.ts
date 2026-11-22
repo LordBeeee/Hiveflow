@@ -72,6 +72,7 @@ function setup(claimed = true, running = 0) {
   const events = new RunEvents();
   const emit = jest.spyOn(events, 'emit');
   const spaces = {
+    ownedContext: jest.fn().mockResolvedValue({}),
     get: jest.fn().mockResolvedValue({
       graph: {
         nodes: [{ id: row.nodeId, type: 'text', params: row.params }],

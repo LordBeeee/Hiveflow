@@ -37,6 +37,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { runRateLimit } from './run-rate-limit';
 import { DiscoveryModule } from '@nestjs/core';
 import { ExecutorRegistry } from '../executors/executor-registry';
+import { CreationsController } from './creations.controller';
 @Module({
   imports: [
     DiscoveryModule,
@@ -46,6 +47,7 @@ import { ExecutorRegistry } from '../executors/executor-registry';
     ThrottlerModule.forRoot(runRateLimit),
   ],
   controllers: [
+    CreationsController,
     RunsController,
     ExecutionController,
     ModelsController,
