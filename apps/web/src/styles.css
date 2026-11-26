@@ -1130,7 +1130,6 @@ textarea:focus-visible {
   color: #efbd9a;
   text-decoration: underline;
 }
-.voiceover-mock,
 .voiceover-placeholder {
   font-size: 11px;
   line-height: 1.6;

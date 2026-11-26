@@ -12,7 +12,6 @@ it('round trips Kling capabilities and prices, coerces models and requires a sta
     const parsed = availableModelSchema.parse({
       ...model,
       available: true,
-      isDefault: false,
     });
     expect(parsed.capabilities).toEqual(model.capabilities);
     expect(parsed.pricing).toEqual(model.pricing);

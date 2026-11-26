@@ -22,46 +22,48 @@ it('binds cost approval to content/connections while allowing camera and layout 
 it('prices image counts/resolution, video seconds/resolution and flat LLM calls', () => {
   expect(
     estimateModelUnits(
-      findModel('mock-image')!,
+      findModel('bytedance-seed/seedream-4.5')!,
       { count: 3, resolution: '2K' },
       { ports: {} },
     ),
-  ).toBe(6);
+  ).toBe(24);
   expect(
     estimateModelUnits(
-      findModel('mock-video')!,
+      findModel('seedance-2-0')!,
       { duration: 10, resolution: '1080p' },
       { ports: {} },
     ),
-  ).toBe(40);
-  expect(estimateModelUnits(findModel('mock-llm')!, {}, { ports: {} })).toBe(1);
+  ).toBe(140);
+  expect(
+    estimateModelUnits(findModel('google/gemini-4-neon')!, {}, { ports: {} }),
+  ).toBe(10.5);
 });
 it('prices effective TTS characters precisely and reserves a bound for unknown script', () => {
   expect(
     estimateModelUnits(
-      findModel('mock-tts')!,
+      findModel('elevenlabs/eleven-v4')!,
       { script: 'local' },
       { ports: { script: [{ kind: 'text', value: 'a'.repeat(1001) }] } },
     ),
-  ).toBe(1.001);
+  ).toBe(8.008);
   expect(
     estimateModelUnits(
-      findModel('mock-tts')!,
+      findModel('elevenlabs/eleven-v4')!,
       { script: 'hello' },
       { ports: {} },
     ),
-  ).toBe(0.005);
+  ).toBe(0.04);
   expect(
     estimateModelUnits(
-      findModel('mock-tts')!,
+      findModel('elevenlabs/eleven-v4')!,
       { script: '' },
       { ports: {} },
       true,
     ),
-  ).toBe(5);
+  ).toBe(40);
   expect(() =>
     estimateModelUnits(
-      findModel('mock-tts')!,
+      findModel('elevenlabs/eleven-v4')!,
       { script: 'a'.repeat(5001) },
       { ports: {} },
     ),

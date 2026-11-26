@@ -82,7 +82,6 @@ export interface ModelDefinition {
 export interface AvailableModel extends ModelDefinition {
   available: boolean;
   unavailableReason?: string;
-  isDefault: boolean;
 }
 // Catalog snapshot: public OpenRouter discovery + endpoint metadata, 2026-11-19.
 // User-selected families/screenshots. Application media caps are deliberately conservative.
@@ -4382,209 +4381,7 @@ export const videoAspectRatios = [
   'adaptive',
 ] as const;
 export const videoResolutions = ['480p', '720p', '1080p', '4k'] as const;
-const imageCapabilities: ModelCapabilities = {
-  aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4'],
-  resolutions: ['1K', '2K', '4K'],
-  maxCount: 4,
-  maxReferences: 1000,
-};
 export const modelCatalog: readonly ModelDefinition[] = [
-  {
-    id: 'mock-image',
-    kind: 'image',
-    provider: 'mock',
-    providerModelId: 'mock-image',
-    label: 'Mock Image',
-    status: 'active',
-    aliases: ['mock-image-v1'],
-    capabilities: imageCapabilities,
-    options: [],
-    costUnits: 1,
-  },
-  {
-    id: 'mock-image-compact',
-    kind: 'image',
-    provider: 'mock',
-    providerModelId: 'mock-image-compact',
-    label: 'Mock Image Compact',
-    status: 'active',
-    capabilities: {
-      aspectRatios: ['1:1', '16:9'],
-      resolutions: ['1K'],
-      maxCount: 1,
-      maxReferences: 2,
-    },
-    options: [
-      {
-        key: 'quality',
-        label: 'Quality',
-        type: 'select',
-        choices: ['draft', 'standard'],
-        default: 'standard',
-      },
-      {
-        key: 'seed',
-        label: 'Seed',
-        type: 'number',
-        min: 0,
-        max: 9999,
-        default: 0,
-      },
-      { key: 'softLight', label: 'Soft light', type: 'boolean', default: true },
-    ],
-    costUnits: 1,
-  },
-  {
-    id: 'mock-image-legacy',
-    kind: 'image',
-    provider: 'mock',
-    providerModelId: 'legacy',
-    label: 'Mock Image Legacy',
-    status: 'removed',
-    capabilities: imageCapabilities,
-    options: [],
-    costUnits: 1,
-  },
-  {
-    id: 'image-studio',
-    kind: 'image',
-    provider: 'custom',
-    providerModelId: 'studio',
-    label: 'Image Studio (custom adapter)',
-    status: 'active',
-    capabilities: imageCapabilities,
-    options: [],
-    costUnits: 1,
-  },
-  {
-    id: 'mock-llm',
-    kind: 'llm',
-    provider: 'mock',
-    providerModelId: 'mock-llm',
-    label: 'Mock Assistant',
-    status: 'active',
-    capabilities: { supportsImageInput: true },
-    options: [],
-    costUnits: 1,
-  },
-  {
-    id: 'mock-llm-text',
-    kind: 'llm',
-    provider: 'mock',
-    providerModelId: 'mock-llm-text',
-    label: 'Mock Assistant Text',
-    status: 'active',
-    capabilities: { supportsImageInput: false },
-    options: [],
-    costUnits: 1,
-  },
-  {
-    id: 'assistant-studio',
-    kind: 'llm',
-    provider: 'custom',
-    providerModelId: 'assistant-studio',
-    label: 'Assistant Studio (custom adapter)',
-    status: 'active',
-    capabilities: { supportsImageInput: true },
-    options: [],
-    costUnits: 1,
-  },
-  {
-    id: 'mock-tts',
-    kind: 'tts',
-    provider: 'mock',
-    providerModelId: 'mock-tts',
-    label: 'Mock Voice',
-    status: 'active',
-    capabilities: {
-      voices: ['calm', 'bright'],
-      languages: ['auto', 'en', 'vi'],
-      speed: { min: 0.75, max: 1.5, default: 1 },
-    },
-    options: [],
-    costUnits: 1,
-  },
-  {
-    id: 'mock-video',
-    kind: 'video',
-    provider: 'mock-video',
-    providerModelId: 'mock-video',
-    label: 'Mock Video',
-    status: 'active',
-    capabilities: {
-      durations: [5, 10],
-      aspectRatios: ['16:9', '9:16', '1:1'],
-      resolutions: ['720p', '1080p'],
-      supportsEndImage: true,
-      supportsAudio: true,
-    },
-    options: [],
-    costUnits: 2,
-  },
-  {
-    id: 'mock-tts-narration',
-    kind: 'tts',
-    provider: 'mock',
-    providerModelId: 'mock-tts-narration',
-    label: 'Mock Narrator',
-    status: 'active',
-    capabilities: {
-      voices: ['narrator'],
-      languages: ['en'],
-      speed: { min: 0.8, max: 1.25, default: 1 },
-    },
-    options: [],
-    costUnits: 1,
-  },
-  {
-    id: 'voice-studio',
-    kind: 'tts',
-    provider: 'custom',
-    providerModelId: 'voice-studio',
-    label: 'Voice Studio (custom adapter)',
-    status: 'active',
-    capabilities: {
-      voices: ['studio'],
-      languages: ['en'],
-      speed: { min: 0.75, max: 1.5, default: 1 },
-    },
-    options: [],
-    costUnits: 1,
-  },
-  {
-    id: 'mock-video-basic',
-    kind: 'video',
-    provider: 'mock-video',
-    providerModelId: 'mock-video-basic',
-    label: 'Mock Video Basic',
-    status: 'active',
-    capabilities: {
-      durations: [5],
-      aspectRatios: ['16:9', '1:1'],
-      resolutions: ['720p'],
-      supportsEndImage: false,
-      supportsAudio: false,
-    },
-    options: [],
-    costUnits: 2,
-  },
-  {
-    id: 'video-studio',
-    kind: 'video',
-    provider: 'custom',
-    providerModelId: 'video-studio',
-    label: 'Video Studio (custom adapter)',
-    status: 'active',
-    capabilities: {
-      durations: [5, 10],
-      aspectRatios: ['16:9'],
-      resolutions: ['720p'],
-      supportsEndImage: false,
-      supportsAudio: false,
-    },
-    options: [],
-    costUnits: 1,
-  },
   ...openrouterCatalog,
   ...seedanceCatalog,
   ...klingCatalog,
@@ -4600,10 +4397,9 @@ export function selectModel(
   kind: ModelKind,
   models: readonly AvailableModel[],
 ) {
-  const model =
-    id === 'auto'
-      ? models.find((model) => model.kind === kind && model.isDefault)
-      : (findModel(id, models) as AvailableModel | undefined);
+  if (!id || id === 'auto')
+    throw new Error('Choose a model before generating.');
+  const model = findModel(id, models) as AvailableModel | undefined;
   if (!model || model.kind !== kind || model.status === 'removed')
     throw new Error(
       'This model is unknown or removed. Please choose another model.',
@@ -4876,7 +4672,6 @@ export const availableModelSchema = z.object({
   costUnits: z.number(),
   available: z.boolean(),
   unavailableReason: z.string().optional(),
-  isDefault: z.boolean(),
 });
 
 // Discovery allowlist from the integration brief; never runtime catalog entries.

@@ -19,7 +19,10 @@ it('bounds local message and accepts each preset with model-agnostic saves', () 
   ).toBe(false);
 });
 it('versions preset execution hashes without changing image hashes', async () => {
-  const params = { ...nodeRegistry.assistant.defaultParams, model: 'mock-llm' };
+  const params = {
+    ...nodeRegistry.assistant.defaultParams,
+    model: 'google/gemini-4-neon',
+  };
   const first = await executionHash('assistant', params, { ports: {} });
   expect(first).toBe(await executionHash('assistant', params, { ports: {} }));
   const registry = {

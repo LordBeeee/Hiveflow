@@ -10,13 +10,13 @@ test('provider capabilities disable speed, require start image and derive adapti
       const response = await route.fetch();
       const models = (await response.json()) as AvailableModel[];
       for (const model of models) {
-        if (model.id === 'mock-tts')
+        if (model.id === 'elevenlabs/eleven-v4')
           model.capabilities = {
             ...model.capabilities,
             supportsSpeed: false,
             maxInputChars: 3,
           };
-        if (model.id === 'mock-video')
+        if (model.id === 'seedance-2-0')
           model.capabilities = {
             ...model.capabilities,
             requiresStartImage: true,
@@ -43,7 +43,10 @@ test('provider capabilities disable speed, require start image and derive adapti
       id: crypto.randomUUID(),
       type: 'voiceover',
       position: { x: 50, y: 50 },
-      params: { ...nodeRegistry.voiceover.defaultParams, model: 'mock-tts' },
+      params: {
+        ...nodeRegistry.voiceover.defaultParams,
+        model: 'elevenlabs/eleven-v4',
+      },
     };
     const video = {
       id: crypto.randomUUID(),
@@ -51,7 +54,7 @@ test('provider capabilities disable speed, require start image and derive adapti
       position: { x: 520, y: 50 },
       params: {
         ...nodeRegistry.video_generator.defaultParams,
-        model: 'mock-video',
+        model: 'seedance-2-0',
       },
     };
     space.graph.nodes = [image, voice, video];

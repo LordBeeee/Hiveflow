@@ -12,7 +12,6 @@ it('round trips the Seedance catalog and exposes only explicit durations and sou
       availableModelSchema.parse({
         ...model,
         available: false,
-        isDefault: false,
       }).capabilities,
     ).toEqual(model.capabilities);
     expect(model.pricing?.source).toBe(

@@ -16,7 +16,6 @@ export function VoiceoverNode({ id, data, selected }: NodeProps<CanvasNode>) {
   const { runNode, cancelNode } = useExecution();
   const run = useRunStore((state) => state.nodes[id]);
   const audio = useRunStore((state) => state.outputs[id]?.audio?.[0]);
-  const previewProvider = useRunStore((state) => state.successes[id]?.provider);
   const requesting = useRunStore((state) => state.requesting[id]);
   const requestError = useRunStore((state) => state.requestErrors[id]);
   const stale = useRunStore((state) => state.stale[id]);
@@ -205,7 +204,7 @@ export function VoiceoverNode({ id, data, selected }: NodeProps<CanvasNode>) {
             <CostButton
               nodeId={id}
               aria-label={`Retry ${label}`}
-              disabled={!!busy}
+              disabled={!!busy || !model}
               onClick={() => void runNode(id)}
             >
               Retry
@@ -236,11 +235,6 @@ export function VoiceoverNode({ id, data, selected }: NodeProps<CanvasNode>) {
                 Download audio
               </a>
             </div>
-            {previewProvider === 'mock' && (
-              <p className="voiceover-mock">
-                Mock tone preview · not spoken narration
-              </p>
-            )}
           </div>
         ) : (
           <p className="voiceover-placeholder">
@@ -264,6 +258,7 @@ export function VoiceoverNode({ id, data, selected }: NodeProps<CanvasNode>) {
             <CostButton
               nodeId={id}
               force
+              disabled={!model}
               aria-label={`Force rerun ${label}`}
               onClick={() => void runNode(id, true)}
             >
@@ -274,7 +269,7 @@ export function VoiceoverNode({ id, data, selected }: NodeProps<CanvasNode>) {
             nodeId={id}
             className="run-button"
             aria-label={`Run ${label}`}
-            disabled={!!busy}
+            disabled={!!busy || !model}
             onClick={() => void runNode(id)}
           >
             <Icon name="play" size={12} />

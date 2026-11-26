@@ -1,6 +1,11 @@
 import { runAll } from './helpers';
 import { test, expect } from '@playwright/test';
 import { nodeRegistry } from '@hiveflow/shared';
+test.skip(
+  !process.env.CREATIONS_TEST_API,
+  'Start the isolated offline API harness and set CREATIONS_TEST_API.',
+);
+
 test('Voiceover model coercion, script-writer workflow, audio playback, cache, stale and cancel', async ({
   page,
   request,
@@ -21,43 +26,52 @@ test('Voiceover model coercion, script-writer workflow, audio playback, cache, s
     await picker.getByRole('combobox', { name: 'Search nodes' }).fill('voice');
     await page.keyboard.press('Enter');
     const card = page.locator('.workflow-node.voiceover');
-    await expect(
-      card.getByRole('option', { name: 'bright', exact: true }),
-    ).toHaveCount(1);
-    await card.getByLabel('Model', { exact: true }).selectOption('auto');
-    await page
-      .getByLabel('Voiceover #1 voice', { exact: true })
-      .selectOption('bright');
-    await page
-      .getByLabel('Voiceover #1 language', { exact: true })
-      .selectOption('vi');
-    await page.getByLabel('Voiceover #1 speed', { exact: true }).fill('1.5');
     await card
       .getByLabel('Model', { exact: true })
-      .selectOption('mock-tts-narration');
+      .selectOption('elevenlabs/eleven-v4');
     await expect(
-      page.getByLabel('Voiceover #1 voice', { exact: true }),
-    ).toHaveValue('narrator');
-    await expect(
-      page.getByLabel('Voiceover #1 language', { exact: true }),
-    ).toHaveValue('en');
-    await expect(
-      page.getByLabel('Voiceover #1 speed', { exact: true }),
-    ).toHaveValue('1.25');
-    await page.getByRole('button', { name: 'Undo', exact: true }).click();
-    await expect(card.getByLabel('Model', { exact: true })).toHaveValue('auto');
-    await expect(
-      page.getByLabel('Voiceover #1 voice', { exact: true }),
-    ).toHaveValue('bright');
-    await expect(
-      page.getByLabel('Voiceover #1 language', { exact: true }),
-    ).toHaveValue('vi');
+      card.getByRole('option', { name: 'sarah', exact: true }),
+    ).toHaveCount(1);
+    await card
+      .getByLabel('Model', { exact: true })
+      .selectOption('elevenlabs/eleven-v4');
+    await page
+      .getByLabel('Voiceover #1 voice', { exact: true })
+      .selectOption('sarah');
+    await page
+      .getByLabel('Voiceover #1 language', { exact: true })
+      .selectOption('elevenlabs/eleven-v4');
     await expect(
       page.getByLabel('Voiceover #1 speed', { exact: true }),
-    ).toHaveValue('1.5');
-    await expect(
-      card.getByRole('option', { name: /Voice Studio/ }),
     ).toBeDisabled();
+    await card
+      .getByLabel('Model', { exact: true })
+      .selectOption('google/gemini-3.8-flash-tts');
+    await expect(
+      page.getByLabel('Voiceover #1 voice', { exact: true }),
+    ).toHaveValue('Zephyr');
+    await expect(
+      page.getByLabel('Voiceover #1 language', { exact: true }),
+    ).toHaveValue('auto');
+    await expect(
+      page.getByLabel('Voiceover #1 speed', { exact: true }),
+    ).toHaveValue('1');
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(card.getByLabel('Model', { exact: true })).toHaveValue(
+      'elevenlabs/eleven-v4',
+    );
+    await expect(
+      page.getByLabel('Voiceover #1 voice', { exact: true }),
+    ).toHaveValue('sarah');
+    await expect(
+      page.getByLabel('Voiceover #1 language', { exact: true }),
+    ).toHaveValue('auto');
+    await expect(
+      page.getByLabel('Voiceover #1 speed', { exact: true }),
+    ).toHaveValue('1');
+    await expect(
+      card.getByRole('option', { name: /Studio \(custom adapter\)/ }),
+    ).toHaveCount(0);
     await page
       .getByLabel('Voiceover #1 script', { exact: true })
       .fill('Preserved local script');
@@ -120,7 +134,7 @@ test('Voiceover model coercion, script-writer workflow, audio playback, cache, s
     });
     await expect(
       page.getByLabel('Assistant #1 result', { exact: true }),
-    ).toContainText('Narration script:');
+    ).toContainText('Offline narration fixture.');
     const audio = card.locator('audio');
     await expect(audio).toHaveCount(1);
     await expect

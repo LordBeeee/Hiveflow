@@ -43,7 +43,7 @@ export const imageGeneratorParamsSchema = z
   .object({
     prompt: z.string(),
     count: z.number().int().min(1).max(4),
-    model: z.string().min(1),
+    model: z.string(),
     aspectRatio: z.enum(imageAspectRatios),
     resolution: z.enum(imageResolutions),
     options: z
@@ -65,7 +65,7 @@ export const assistantParamsSchema = z
       'image_to_prompt',
       'script_writer',
     ]),
-    model: z.string().min(1),
+    model: z.string(),
     options: z
       .record(
         z.string(),
@@ -78,7 +78,7 @@ export const assistantParamsSchema = z
 export const voiceoverParamsSchema = z
   .object({
     script: z.string().max(5000),
-    model: z.string().min(1),
+    model: z.string(),
     voice: z.string().min(1),
     language: z.string().min(1),
     speed: z
@@ -100,7 +100,7 @@ export const voiceoverParamsSchema = z
 export const videoGeneratorParamsSchema = z
   .object({
     prompt: z.string(),
-    model: z.string().min(1),
+    model: z.string(),
     duration: z.number().int().min(1).max(30),
     aspectRatio: z.enum(videoAspectRatios),
     resolution: z.enum(videoResolutions),
@@ -131,7 +131,7 @@ export const nodeRegistry = {
     paramsSchema: videoGeneratorParamsSchema,
     defaultParams: {
       prompt: '',
-      model: 'auto',
+      model: '',
       duration: 5,
       aspectRatio: '16:9',
       resolution: '720p',
@@ -152,8 +152,8 @@ export const nodeRegistry = {
     paramsSchema: voiceoverParamsSchema,
     defaultParams: {
       script: '',
-      model: 'auto',
-      voice: 'calm',
+      model: '',
+      voice: 'george',
       language: 'auto',
       speed: 1,
       options: {},
@@ -174,7 +174,7 @@ export const nodeRegistry = {
     ],
     outputs: [{ id: 'text', type: 'text' }],
     paramsSchema: assistantParamsSchema,
-    defaultParams: { message: '', preset: 'free', model: 'auto', options: {} },
+    defaultParams: { message: '', preset: 'free', model: '', options: {} },
   },
   text: {
     type: 'text',
@@ -223,7 +223,7 @@ export const nodeRegistry = {
     defaultParams: {
       prompt: '',
       count: 1,
-      model: 'auto',
+      model: '',
       aspectRatio: '1:1',
       resolution: '1K',
       options: {},

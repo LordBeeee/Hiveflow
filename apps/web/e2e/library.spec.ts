@@ -88,7 +88,7 @@ test.beforeEach(async ({ page }) => {
         item.asset.kind === 'image'
           ? png
           : item.asset.kind === 'video'
-            ? readFileSync('../api/assets/mock-video.mp4')
+            ? readFileSync('../api/fixtures/sample-video.mp4')
             : wav,
     });
   });

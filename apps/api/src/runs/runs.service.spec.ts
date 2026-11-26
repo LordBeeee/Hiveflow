@@ -198,7 +198,7 @@ it('leaves work queued when the per-Space running limit has been reached', async
 });
 it('does not claim a job when its provider quota is full', async () => {
   const { service, row, execute, changes } = setup(true, 2);
-  row.provider = 'mock';
+  row.provider = 'openrouter';
   row.providerKind = 'image';
   await service.process(row.id);
   expect(execute).not.toHaveBeenCalled();

@@ -5,7 +5,6 @@ import {
   Query,
   BadRequestException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import {
   modelCatalog,
   modelKinds,
@@ -21,10 +20,7 @@ import {
 import { ProviderRegistry } from './provider-registry';
 @Injectable()
 export class ModelsService {
-  constructor(
-    private readonly config: ConfigService,
-    private readonly providers: ProviderRegistry,
-  ) {}
+  constructor(private readonly providers: ProviderRegistry) {}
   list(kind?: ModelKind): AvailableModel[] {
     const entries: AvailableModel[] = modelCatalog.map((model) => {
       const configured = this.providers.has(model.kind, model.provider);
@@ -38,22 +34,8 @@ export class ModelsService {
         ...model,
         available: !reason,
         ...(reason ? { unavailableReason: reason } : {}),
-        isDefault: false,
       };
     });
-    for (const item of modelKinds) {
-      const defaultId = this.config.get<string>(
-        `DEFAULT_${item.toUpperCase()}_MODEL`,
-      );
-      const defaultModel = defaultId
-        ? entries.find(
-            (entry) =>
-              entry.id === defaultId || entry.aliases?.includes(defaultId),
-          )
-        : entries.find((entry) => entry.kind === item && entry.available);
-      if (defaultModel?.kind === item && defaultModel.available)
-        defaultModel.isDefault = true;
-    }
     return kind ? entries.filter((model) => model.kind === kind) : entries;
   }
   prepare(node: GraphNode, inputs: ResolvedInputs) {
@@ -61,7 +43,7 @@ export class ModelsService {
     const params = definition.paramsSchema.parse(node.params);
     if (!definition.modelKind) return { params, model: null, provider: null };
     const model = selectModel(
-      String(params.model ?? 'auto'),
+      String(params.model ?? ''),
       definition.modelKind,
       this.list(),
     );

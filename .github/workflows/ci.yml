@@ -29,8 +29,6 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-        env:
-          FFMPEG_BIN: /bin/true
       - run: npm run build
       - run: node apps/api/scripts/check-provider-audio.mjs
       - run: node apps/api/scripts/check-openrouter-catalog.mjs
@@ -54,18 +52,28 @@ jobs:
             if curl --fail --silent http://localhost:3000/health > health.json; then
               node -e 'const h = require("./health.json"); if (h.status !== "ok" || h.app !== "Hiveflow") process.exit(1)'
               node apps/api/scripts/smoke-spaces.mjs
-              node apps/api/scripts/smoke-runs.mjs
-              node apps/api/scripts/smoke-batches.mjs
-              node apps/api/scripts/smoke-models.mjs
-              node apps/api/scripts/smoke-assistant.mjs
-              node apps/api/scripts/smoke-voiceover.mjs
-              node apps/api/scripts/smoke-video.mjs
-              node apps/api/scripts/smoke-costs.mjs
-              npx playwright install --with-deps chromium
-              npm run test:e2e -w @hiveflow/web
+              node apps/api/scripts/smoke-library.mjs
+              node apps/api/scripts/smoke-creations.mjs
               exit 0
             fi
             sleep 1
           done
           cat api.log
+          exit 1
+      - name: Check creation tools in the browser with isolated offline adapters
+        shell: bash
+        run: |
+          node apps/api/scripts/smoke-creations.mjs --serve > creations.log 2>&1 &
+          fixture_pid=$!
+          trap 'kill "$fixture_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..60}; do
+            test_api=$(sed -n 's/^CREATIONS_TEST_API=//p' creations.log | tail -1)
+            if [ -n "$test_api" ]; then
+              npx playwright install --with-deps chromium
+              API_PROXY_TARGET="$test_api" CREATIONS_TEST_API="$test_api" npm run test:e2e -w @hiveflow/web -- creations.spec.ts
+              exit 0
+            fi
+            sleep 1
+          done
+          cat creations.log
           exit 1

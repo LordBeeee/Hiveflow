@@ -25,7 +25,7 @@ const preload = `
       assert.equal(body.resolution, '480p');
       assert.equal(body.generate_audio, false);
       assert.equal(body.execution_expires_after, 3600);
-      assert.equal(body.model, process.env.DEFAULT_VIDEO_MODEL === 'seedance-2-5' ? 'dreamina-seedance-2-5-260628' : 'dreamina-seedance-2-0-260128');
+      assert.equal(body.model, process.env.LIVE_CHECK_VIDEO_MODEL === 'seedance-2-5' ? 'dreamina-seedance-2-5-260628' : 'dreamina-seedance-2-0-260128');
       return json({ id: 'offline-task' });
     }
     assert.equal(init.method, 'GET');
@@ -34,7 +34,7 @@ const preload = `
     return json({ status: 'succeeded', content: { video_url: 'https://cdn.example/offline.mp4' }, usage: { completion_tokens: 123 } });
   };
 `;
-for (const model of ['mock-video', 'seedance-2-5']) {
+for (const model of ['', 'seedance-2-5']) {
   const result = spawnSync(
     process.execPath,
     [
@@ -50,7 +50,7 @@ for (const model of ['mock-video', 'seedance-2-5']) {
         HIVEFLOW_LIVE_CHECK: '1',
         ARK_API_KEY: 'offline-fixture',
         ARK_BASE_URL: 'https://ark.example/api/v3',
-        DEFAULT_VIDEO_MODEL: model,
+        LIVE_CHECK_VIDEO_MODEL: model,
       },
     },
   );
@@ -68,5 +68,5 @@ for (const model of ['mock-video', 'seedance-2-5']) {
   assert(!result.stdout.includes('cdn.example'));
 }
 console.log(
-  'Seedance live-check CLI passed offline for mock-default fallback and explicit 2.5; no provider network.',
+  'Seedance live-check CLI passed offline for unset-default fallback and explicit 2.5; no provider network.',
 );

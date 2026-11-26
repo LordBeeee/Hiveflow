@@ -26,7 +26,7 @@ function run(sequence: string, status: NodeRun['status']): NodeRun {
           }
         : null,
     error: null,
-    provider: 'mock',
+    provider: 'openrouter',
     cacheHit: false,
     createdAt: '2026-11-17T00:00:00.000Z',
     startedAt: null,

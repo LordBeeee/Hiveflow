@@ -1,3 +1,5 @@
+> Historical record: demo Mock/Custom providers and their integration scripts were removed. Use README.md for the current real-provider setup and offline test commands.
+
 # Hiveflow — Node Picker & New Nodes Plan (Phases 6–11)
 
 Continuation of `SPACES_PLAN.md` (Phases 0–5 are done: canvas, persistence, single-node runs, edge data flow, run-all, cache, stale, cancel). Read `SPACES_PLAN.md` §1 (working agreements), `docs/DECISIONS.md` and the current code before starting. The same working agreements apply: **one phase at a time**, run acceptance checks, commit, stop and summarize. Record every assumption in `docs/DECISIONS.md`.

@@ -1,3 +1,5 @@
+> Historical record: demo Mock/Custom providers and their integration scripts were removed. Use README.md for the current real-provider setup and offline test commands.
+
 # Phase 11.2 verification
 
 11.2a groundwork: MediaInput storage bytes, bounded HTTP, SSRF-safe streaming downloads, capability contracts/UI and read-only OpenRouter discovery. OpenRouter (11.2b), the user-selected catalog, Seedance (11.2c), Kling (11.2d) and the explicitly requested Veo (11.2e) are implemented. No real credentials or paid calls are part of acceptance. The sections below preserve the evidence for each checkpoint.

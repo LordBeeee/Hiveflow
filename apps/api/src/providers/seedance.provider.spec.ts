@@ -50,29 +50,26 @@ function setup(...responses: Response[]) {
       >,
   };
 }
-it('key-gates Seedance availability without changing mock Auto defaults', () => {
+it('key-gates Seedance availability with explicit model choices', () => {
   const registry = new ProviderRegistry();
-  registry.register('video', 'mock-video', { id: 'mock-video' } as never);
   const config = new ConfigService({
     ARK_BASE_URL: 'https://ark.example/api/v3',
     MAX_VIDEO_MB: 10,
     PROVIDER_TIMEOUT_MS: 1000,
-    DEFAULT_VIDEO_MODEL: 'mock-video',
   });
   registerSeedance(registry, config);
   expect(
-    new ModelsService(config, registry)
+    new ModelsService(registry)
       .list('video')
       .filter((m) => m.provider === 'seedance')
       .every((m) => !m.available),
   ).toBe(true);
   config.set('ARK_API_KEY', 'offline-key');
   registerSeedance(registry, config);
-  const models = new ModelsService(config, registry).list('video');
+  const models = new ModelsService(registry).list('video');
   expect(
     models.filter((m) => m.provider === 'seedance' && m.available),
   ).toHaveLength(2);
-  expect(models.find((m) => m.isDefault)?.id).toBe('mock-video');
 });
 it.each(seedanceCatalog)(
   'submits $id text-only with exact model fields, expiry and audio off',

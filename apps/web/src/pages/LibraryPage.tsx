@@ -164,7 +164,6 @@ export function LibraryPage() {
     >
       <div className="spaces-heading">
         <div>
-          <div className="spaces-breadcrumb">Workspace /</div>
           <h1>
             Library{data && <span className="spaces-count">{data.total}</span>}
           </h1>

@@ -138,7 +138,12 @@ export class CostsService {
     };
     return { estimate, graph: frozen };
   }
-  enforce(estimate: Pick<CostEstimate, 'providerNodes' | 'units'>) {
+  enforce(
+    estimate: Pick<CostEstimate, 'providerNodes' | 'units'> &
+      Partial<Pick<CostEstimate, 'nodes'>>,
+  ) {
+    const invalid = estimate.nodes?.find((node) => node.error);
+    if (invalid) throw new UnprocessableEntityException(invalid.error);
     const maxNodes = this.config.getOrThrow<number>('MAX_BATCH_PROVIDER_NODES'),
       maxUnits = this.config.getOrThrow<number>('MAX_BATCH_UNITS');
     if (estimate.providerNodes > maxNodes)

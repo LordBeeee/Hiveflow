@@ -302,19 +302,13 @@ export function VideoGeneratorNode({
               <CostButton
                 nodeId={id}
                 aria-label={`Retry ${label}`}
-                disabled={!!busy}
+                disabled={!!busy || !model}
                 onClick={() => void runNode(id)}
               >
                 Retry
               </CostButton>
             )}
           </div>
-        )}
-        {video && run?.provider === 'mock-video' && (
-          <p className="voiceover-mock">
-            Mock fixture · 2 s, 320×180, silent. Settings and references
-            exercise the workflow; no AI video synthesis.
-          </p>
         )}
         {run?.model && (
           <p className="generated-model">Generated with {run.model}</p>
@@ -333,7 +327,7 @@ export function VideoGeneratorNode({
               nodeId={id}
               force
               aria-label={`Force rerun ${label}`}
-              disabled={!!warning}
+              disabled={!!warning || !model}
               title={warning}
               onClick={() => void runNode(id, true)}
             >
@@ -344,7 +338,7 @@ export function VideoGeneratorNode({
             nodeId={id}
             className="run-button"
             aria-label={`Run ${label}`}
-            disabled={!!busy || !!warning}
+            disabled={!!busy || !!warning || !model}
             title={warning}
             onClick={() => void runNode(id)}
           >

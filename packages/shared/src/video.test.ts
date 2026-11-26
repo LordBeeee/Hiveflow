@@ -11,22 +11,22 @@ it('keeps graph saves model-agnostic but rejects unsupported video capabilities 
     generateAudio: true,
   };
   expect(videoGeneratorParamsSchema.safeParse(params).success).toBe(true);
-  expect(() =>
-    validateModelParams(params, findModel('mock-video-basic')!),
-  ).toThrow('aspectRatio');
+  expect(() => validateModelParams(params, findModel('veo-3-1-fast')!)).toThrow(
+    'duration',
+  );
   const result = coerceParamsForModel(
     'video_generator',
     params,
-    findModel('mock-video-basic')!,
+    findModel('veo-3-1-fast')!,
   );
   expect(result.params).toMatchObject({
-    duration: 5,
-    aspectRatio: '16:9',
-    resolution: '720p',
-    generateAudio: false,
+    duration: 8,
+    aspectRatio: '9:16',
+    resolution: '1080p',
+    generateAudio: true,
     options: {},
   });
   expect(() =>
-    validateModelParams(result.params, findModel('mock-video-basic')!),
+    validateModelParams(result.params, findModel('veo-3-1-fast')!),
   ).not.toThrow();
 });

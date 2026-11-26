@@ -82,12 +82,11 @@ function setup(...responses: Response[]) {
 }
 it('requires both explicit credentials and project and never falls back to ambient ADC', () => {
   const registry = new ProviderRegistry();
-  registry.register('video', 'mock-video', { id: 'mock-video' });
+  registry.register('video', 'seedance', { id: 'seedance-2-0' });
   const config = new ConfigService({
     GOOGLE_CLOUD_PROJECT_ID: project,
     PROVIDER_TIMEOUT_MS: 1000,
     MAX_VIDEO_MB: 250,
-    DEFAULT_VIDEO_MODEL: 'mock-video',
   });
   registerVeo(registry, config);
   expect(registry.has('video', 'veo')).toBe(false);
@@ -97,11 +96,10 @@ it('requires both explicit credentials and project and never falls back to ambie
   expect(registry.has('video', 'veo')).toBe(false);
   config.set('GOOGLE_CLOUD_PROJECT_ID', project);
   registerVeo(registry, config);
-  const rows = new ModelsService(config, registry).list('video');
+  const rows = new ModelsService(registry).list('video');
   expect(
     rows.filter((row) => row.provider === 'veo' && row.available),
   ).toHaveLength(2);
-  expect(rows.find((row) => row.isDefault)?.id).toBe('mock-video');
 });
 it('validates service-account keys without leaking input and ignores credential-controlled endpoints', () => {
   const input = {

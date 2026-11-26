@@ -1,4 +1,9 @@
 import { test, expect } from '@playwright/test';
+test.skip(
+  !process.env.CREATIONS_TEST_API,
+  'Start the isolated offline API harness and set CREATIONS_TEST_API.',
+);
+
 test('Run all reviews cost before admission, cancel is free, cache costs zero and limits are visible', async ({
   page,
   request,
@@ -18,14 +23,14 @@ test('Run all reviews cost before admission, cancel is free, cache costs zero an
     await expect(page.getByText('Saved', { exact: true })).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Run Image Generator #1', exact: true }),
-    ).toHaveAttribute('title', /1 estimated credits/);
+    ).toHaveAttribute('title', /4 estimated credits/);
     await page.getByRole('button', { name: 'Run all', exact: true }).click();
     const dialog = page.getByRole('dialog', {
       name: 'Review estimated cost',
       exact: true,
     });
-    await expect(dialog).toContainText('1 estimated credits');
-    await expect(dialog).toContainText('simulated credits');
+    await expect(dialog).toContainText('4 estimated credits');
+    await expect(dialog).toContainText('provider pricing may differ');
     expect(
       (await (await request.get(`/api/spaces/${id}/runs`)).json()).length,
     ).toBe(0);

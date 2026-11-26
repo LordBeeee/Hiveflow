@@ -1,3 +1,5 @@
+> Historical record: demo Mock/Custom providers and their integration scripts were removed. Use README.md for the current real-provider setup and offline test commands.
+
 # Phase 8 verification
 
 Validated on 2026-11-17 against the production Docker build.

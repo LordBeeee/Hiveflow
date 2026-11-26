@@ -32,13 +32,13 @@ it('coerces voice, language, speed and options together for the selected model',
       speed: 1.5,
       options: { old: true },
     },
-    findModel('mock-tts-narration')!,
+    findModel('google/gemini-3.8-flash-tts')!,
   );
   expect(result.params).toMatchObject({
-    model: 'mock-tts-narration',
-    voice: 'narrator',
-    language: 'en',
-    speed: 1.25,
+    model: 'google/gemini-3.8-flash-tts',
+    voice: 'Zephyr',
+    language: 'auto',
+    speed: 1,
     options: {},
   });
   expect(result.notices).toHaveLength(3);

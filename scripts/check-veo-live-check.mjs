@@ -15,7 +15,7 @@ const preload = `
   const require = createRequire(process.cwd() + '/package.json');
   require('google-auth-library').JWT.prototype.getAccessToken = async () => ({ token: 'offline-token' });
   let submitted = false;
-  const model = process.env.DEFAULT_VIDEO_MODEL === 'veo-3-1' ? 'veo-3.1-generate-001' : 'veo-3.1-fast-generate-001';
+  const model = process.env.LIVE_CHECK_VIDEO_MODEL === 'veo-3-1' ? 'veo-3.1-generate-001' : 'veo-3.1-fast-generate-001';
   const prefix = 'projects/offline-project/locations/us-central1/publishers/google/models/' + model;
   const name = prefix + '/operations/offline-task';
   globalThis.fetch = async (url, init) => {
@@ -42,7 +42,7 @@ const env = {
   GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON: credentials,
   OFFLINE_GCS_RESULT: '0',
 };
-for (const model of ['mock-video', 'veo-3-1']) {
+for (const model of ['', 'veo-3-1']) {
   const result = spawnSync(
     process.execPath,
     [
@@ -51,7 +51,7 @@ for (const model of ['mock-video', 'veo-3-1']) {
       'scripts/live-check.mjs',
       'veo',
     ],
-    { encoding: 'utf8', env: { ...env, DEFAULT_VIDEO_MODEL: model } },
+    { encoding: 'utf8', env: { ...env, LIVE_CHECK_VIDEO_MODEL: model } },
   );
   assert.equal(result.status, 0, result.stderr);
   const rows = result.stdout
@@ -84,7 +84,7 @@ const unsupported = spawnSync(
   ],
   {
     encoding: 'utf8',
-    env: { ...env, DEFAULT_VIDEO_MODEL: 'veo-3-1', OFFLINE_GCS_RESULT: '1' },
+    env: { ...env, LIVE_CHECK_VIDEO_MODEL: 'veo-3-1', OFFLINE_GCS_RESULT: '1' },
   },
 );
 assert.equal(unsupported.status, 1);

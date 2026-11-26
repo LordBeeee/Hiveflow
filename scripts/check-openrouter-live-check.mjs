@@ -46,9 +46,9 @@ const result = spawnSync(
       HIVEFLOW_LIVE_CHECK: '1',
       OPENROUTER_API_KEY: 'offline-fixture',
       OPENROUTER_BASE_URL: 'https://openrouter.ai/api/v1',
-      DEFAULT_LLM_MODEL: 'mock-llm',
-      DEFAULT_IMAGE_MODEL: 'mock-image',
-      DEFAULT_TTS_MODEL: 'mock-tts',
+      LIVE_CHECK_LLM_MODEL: '',
+      LIVE_CHECK_IMAGE_MODEL: '',
+      LIVE_CHECK_TTS_MODEL: '',
     },
   },
 );

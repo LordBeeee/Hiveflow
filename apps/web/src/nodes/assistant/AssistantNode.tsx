@@ -25,7 +25,7 @@ export function AssistantNode({ id, data, selected }: NodeProps<CanvasNode>) {
   let model: ReturnType<typeof selectModel> | undefined;
   try {
     model = selectModel(
-      String(data.graphNode.params.model ?? 'auto'),
+      String(data.graphNode.params.model ?? ''),
       'llm',
       models.data ?? [],
     );
@@ -122,7 +122,7 @@ export function AssistantNode({ id, data, selected }: NodeProps<CanvasNode>) {
             <CostButton
               nodeId={id}
               aria-label={`Retry ${label}`}
-              disabled={!!busy}
+              disabled={!!busy || !model}
               onClick={() => void runNode(id)}
             >
               Retry
@@ -177,6 +177,7 @@ export function AssistantNode({ id, data, selected }: NodeProps<CanvasNode>) {
             <CostButton
               nodeId={id}
               force
+              disabled={!model}
               aria-label={`Force rerun ${label}`}
               onClick={() => void runNode(id, true)}
             >
@@ -187,7 +188,7 @@ export function AssistantNode({ id, data, selected }: NodeProps<CanvasNode>) {
             nodeId={id}
             className="run-button"
             aria-label={`Run ${label}`}
-            disabled={!!busy}
+            disabled={!!busy || !model}
             onClick={() => void runNode(id)}
           >
             <Icon name="play" size={12} />

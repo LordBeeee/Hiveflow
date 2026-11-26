@@ -12,7 +12,6 @@ it('round trips sourced Veo models and supports text-only, first/last frames and
     const parsed = availableModelSchema.parse({
       ...model,
       available: false,
-      isDefault: false,
     });
     expect(parsed.capabilities).toEqual(model.capabilities);
     expect(parsed.pricing).toEqual(model.pricing);

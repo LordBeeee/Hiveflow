@@ -69,24 +69,22 @@ function setup(...responses: Response[]) {
       >,
   };
 }
-it('registers only with its key and leaves mock Auto defaults unchanged', () => {
+it('registers only with its key without choosing a default model', () => {
   const registry = new ProviderRegistry();
-  registry.register('video', 'mock-video', { id: 'mock-video' });
+  registry.register('video', 'seedance', { id: 'seedance-2-0' });
   const config = new ConfigService({
     KLING_BASE_URL: 'https://kling.example',
     MAX_VIDEO_MB: 250,
     PROVIDER_TIMEOUT_MS: 1000,
-    DEFAULT_VIDEO_MODEL: 'mock-video',
   });
   registerKling(registry, config);
   expect(registry.has('video', 'kling')).toBe(false);
   config.set('KLING_API_KEY', 'offline-key');
   registerKling(registry, config);
-  const rows = new ModelsService(config, registry).list('video');
+  const rows = new ModelsService(registry).list('video');
   expect(
     rows.filter((row) => row.provider === 'kling' && row.available),
   ).toHaveLength(2);
-  expect(rows.find((row) => row.isDefault)?.id).toBe('mock-video');
 });
 it.each(klingCatalog)(
   'sends exact $id settings and raw base64 first frame, never signed URLs/JWT',

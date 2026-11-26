@@ -13,13 +13,12 @@ const { default: httpModule } =
   await import('../apps/api/dist/providers/provider-http.js');
 const { default: errors } =
   await import('../apps/api/dist/providers/seedance-error.js');
-const configured = process.env.DEFAULT_VIDEO_MODEL;
-const model =
-  configured && !configured.startsWith('mock-')
-    ? shared.seedanceCatalog.find((row) => row.id === configured)
-    : shared.seedanceCatalog[0];
+const configured = process.env.LIVE_CHECK_VIDEO_MODEL;
+const model = configured
+  ? shared.seedanceCatalog.find((row) => row.id === configured)
+  : shared.seedanceCatalog[0];
 if (!model) {
-  console.error('Choose a Seedance catalog ID for DEFAULT_VIDEO_MODEL.');
+  console.error('Choose a Seedance catalog ID for LIVE_CHECK_VIDEO_MODEL.');
   process.exit(1);
 }
 const provider = new adapters.SeedanceProvider(

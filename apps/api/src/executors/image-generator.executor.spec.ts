@@ -22,7 +22,10 @@ function setup() {
     .fn()
     .mockResolvedValue({ images: [{ bytes: Buffer.from('png') }] });
   const registry = new ProviderRegistry();
-  registry.register('image', 'mock', { id: 'test', generate } as ImageProvider);
+  registry.register('image', 'openrouter', {
+    id: 'test',
+    generate,
+  } as ImageProvider);
   const executor = new ImageGeneratorExecutor(
     assets as unknown as AssetsService,
     registry,
@@ -32,7 +35,7 @@ function setup() {
     params: {
       ...nodeRegistry.image_generator.defaultParams,
       prompt: 'local',
-      model: 'mock-image',
+      model: 'bytedance-seed/seedream-4.5',
     },
     signal: new AbortController().signal,
   };

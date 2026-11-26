@@ -21,7 +21,6 @@ export function ImageGeneratorNode({
   const requesting = useRunStore((state) => state.requesting[id]);
   const requestError = useRunStore((state) => state.requestErrors[id]);
   const stale = useRunStore((state) => state.stale[id]);
-  const previewProvider = useRunStore((state) => state.successes[id]?.provider);
   const edges = useGraphStore((state) => state.edges);
   const nodes = useGraphStore((state) => state.nodes);
   const promptEdge = edges.find(
@@ -47,7 +46,7 @@ export function ImageGeneratorNode({
   let model: ReturnType<typeof selectModel> | undefined;
   try {
     model = selectModel(
-      String(data.graphNode.params.model ?? 'auto'),
+      String(data.graphNode.params.model ?? ''),
       'image',
       models.data ?? [],
     );
@@ -112,9 +111,7 @@ export function ImageGeneratorNode({
           </div>
         )}
         {!busy && images.length > 0 && (
-          <span className="result-label">
-            {previewProvider === 'mock' ? 'MOCK PREVIEW' : 'GENERATED IMAGE'}
-          </span>
+          <span className="result-label">GENERATED IMAGE</span>
         )}
       </div>
       <div className="execution-status nodrag nopan">
@@ -138,6 +135,7 @@ export function ImageGeneratorNode({
           <CostButton
             nodeId={id}
             force
+            disabled={!model}
             aria-label={`Force rerun Image Generator #${data.number}`}
             onClick={() => void runNode(id, true)}
           >
@@ -151,7 +149,7 @@ export function ImageGeneratorNode({
           <CostButton
             nodeId={id}
             aria-label={`Retry Image Generator #${data.number}`}
-            disabled={!!busy}
+            disabled={!!busy || !model}
             onClick={() => void runNode(id)}
           >
             Retry
@@ -330,7 +328,7 @@ export function ImageGeneratorNode({
             nodeId={id}
             className="run-button"
             aria-label={`Run Image Generator #${data.number}`}
-            disabled={!!busy}
+            disabled={!!busy || !model}
             onClick={() => void runNode(id)}
           >
             <Icon name="play" size={12} />

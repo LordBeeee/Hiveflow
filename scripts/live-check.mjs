@@ -29,7 +29,7 @@ const { default: httpModule } =
 const { default: errors } =
   await import('../apps/api/dist/providers/openrouter-error.js');
 const selected = ['llm', 'image', 'tts'].map((kind) => {
-  const id = process.env[`DEFAULT_${kind.toUpperCase()}_MODEL`];
+  const id = process.env[`LIVE_CHECK_${kind.toUpperCase()}_MODEL`];
   const candidates = shared.modelCatalog.filter(
     (row) =>
       row.kind === kind &&
@@ -45,7 +45,7 @@ const selected = ['llm', 'image', 'tts'].map((kind) => {
         : undefined;
   if (!model) {
     console.error(
-      `Choose and add an OpenRouter ${kind} catalog model first; set DEFAULT_${kind.toUpperCase()}_MODEL to select it.`,
+      `Choose and add an OpenRouter ${kind} catalog model first; set LIVE_CHECK_${kind.toUpperCase()}_MODEL to select it.`,
     );
     process.exit(1);
   }

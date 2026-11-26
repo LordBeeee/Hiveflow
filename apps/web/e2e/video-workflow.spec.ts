@@ -1,10 +1,32 @@
 import { runAll } from './helpers';
 import { test, expect } from '@playwright/test';
 import { nodeRegistry } from '@hiveflow/shared';
+test.skip(
+  !process.env.CREATIONS_TEST_API,
+  'Start the isolated offline API harness and set CREATIONS_TEST_API.',
+);
+
 test('Assistant branches to image, voice and video with progress, playback/seek, Range, cache, stale and cancel', async ({
   page,
   request,
 }) => {
+  await page.route('**/api/models*', async (route) => {
+    const response = await route.fetch();
+    const models = await response.json();
+    for (const model of models)
+      if (model.id === 'veo-3-1-fast') {
+        model.capabilities = {
+          ...model.capabilities,
+          durations: [5],
+          aspectRatios: ['16:9', '1:1'],
+          resolutions: ['720p'],
+          supportsEndImage: false,
+          supportsAudio: false,
+          audio: 'none',
+        };
+      }
+    await route.fulfill({ response, json: models });
+  });
   let id: string | undefined;
   try {
     const node = (
@@ -136,7 +158,7 @@ test('Assistant branches to image, voice and video with progress, playback/seek,
       .check();
     await videoCard
       .getByLabel('Model', { exact: true })
-      .selectOption('mock-video-basic');
+      .selectOption('veo-3-1-fast');
     await expect(
       videoCard.getByLabel('Video Generator #1 duration', { exact: true }),
     ).toHaveValue('5');
@@ -200,7 +222,7 @@ test('Assistant branches to image, voice and video with progress, playback/seek,
     );
     savedVideo.params = {
       ...nodeRegistry.video_generator.defaultParams,
-      model: 'mock-video-basic',
+      model: 'veo-3-1-fast',
     };
     expect(
       (

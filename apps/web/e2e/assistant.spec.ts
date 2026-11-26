@@ -1,5 +1,10 @@
 import { runAll } from './helpers';
 import { test, expect } from '@playwright/test';
+test.skip(
+  !process.env.CREATIONS_TEST_API,
+  'Start the isolated offline API harness and set CREATIONS_TEST_API.',
+);
+
 test('Assistant picker, chained Run all, copy, cache, stale and cancel', async ({
   page,
   request,

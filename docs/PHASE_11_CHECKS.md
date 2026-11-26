@@ -1,3 +1,5 @@
+> Historical record: demo Mock/Custom providers and their integration scripts were removed. Use README.md for the current real-provider setup and offline test commands.
+
 # Phase 11 verification
 
 Verified locally on 2026-11-18 for Phase 11.1, when all executable providers were mocks. The subsequent 11.2a/11.2b implementation and selected OpenRouter catalog are documented in `PHASE_11_2_CHECKS.md`; the historical results below remain the 11.1 checkpoint.

@@ -15,13 +15,12 @@ const { default: adapters } =
   await import('../apps/api/dist/providers/veo.provider.js');
 const { default: auth } =
   await import('../apps/api/dist/providers/veo-auth.js');
-const configured = process.env.DEFAULT_VIDEO_MODEL;
-const model =
-  configured && !configured.startsWith('mock-')
-    ? shared.veoCatalog.find((row) => row.id === configured)
-    : [...shared.veoCatalog].sort((a, b) => a.costUnits - b.costUnits)[0];
+const configured = process.env.LIVE_CHECK_VIDEO_MODEL;
+const model = configured
+  ? shared.veoCatalog.find((row) => row.id === configured)
+  : [...shared.veoCatalog].sort((a, b) => a.costUnits - b.costUnits)[0];
 if (!model) {
-  console.error('Choose a Veo catalog ID for DEFAULT_VIDEO_MODEL.');
+  console.error('Choose a Veo catalog ID for LIVE_CHECK_VIDEO_MODEL.');
   process.exit(1);
 }
 const signal = AbortSignal.timeout(15 * 60 * 1000);

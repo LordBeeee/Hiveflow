@@ -3,12 +3,12 @@ import { assistantPresets, nodeRegistry } from '@hiveflow/shared';
 import { AssistantExecutor } from './assistant.executor';
 import { ProviderRegistry } from '../providers/provider-registry';
 import type { AssetsService } from '../assets/assets.service';
-function setup(model = 'mock-llm') {
+function setup(model = 'google/gemini-4-neon') {
   const complete = jest
     .fn()
     .mockResolvedValue({ text: 'Improved cabin prompt' });
   const registry = new ProviderRegistry();
-  registry.register('llm', 'mock', { id: 'mock', ...{ complete } });
+  registry.register('llm', 'openrouter', { id: 'openrouter', ...{ complete } });
   const assets = {
     providerReference: jest.fn().mockResolvedValue({
       url: 'https://storage.example/private',
@@ -65,7 +65,7 @@ it('keeps ordered context followed by local message, uses preset and signs image
         ],
       },
     ],
-    model: 'mock-llm',
+    model: 'google/gemini-4-neon',
     maxTokens: 6000,
   });
   expect(assets.providerReference).toHaveBeenCalledWith(
@@ -74,7 +74,7 @@ it('keeps ordered context followed by local message, uses preset and signs image
   );
   expect(result).toEqual({
     output: { text: 'Improved cabin prompt' },
-    provider: 'mock',
+    provider: 'openrouter',
   });
 });
 it('rejects excess context and empty instructions before calling the provider', async () => {
@@ -96,7 +96,7 @@ it('rejects excess context and empty instructions before calling the provider', 
   expect(complete).not.toHaveBeenCalled();
 });
 it('rejects nonvision models before signing images or calling the provider', async () => {
-  const { complete, assets, executor, context } = setup('mock-llm-text');
+  const { complete, assets, executor, context } = setup('openai/gpt-oss-120b');
   await expect(
     executor.execute({
       ...context,

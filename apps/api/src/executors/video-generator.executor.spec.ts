@@ -5,9 +5,9 @@ import { VideoGeneratorExecutor } from './video-generator.executor';
 import { ProviderRegistry } from '../providers/provider-registry';
 import { ProviderError } from '../providers/provider-error';
 import type { AssetsService } from '../assets/assets.service';
-function setup(model = 'mock-video') {
+function setup(model = 'seedance-2-0') {
   const provider = {
-    id: 'mock-video',
+    id: 'seedance',
     submit: jest.fn().mockResolvedValue({ taskId: 'accepted' }),
     poll: jest.fn().mockResolvedValue({
       status: 'succeeded',
@@ -23,7 +23,8 @@ function setup(model = 'mock-video') {
     cancel: jest.fn().mockResolvedValue(undefined),
   };
   const registry = new ProviderRegistry();
-  registry.register('video', 'mock-video', provider);
+  registry.register('video', 'seedance', provider);
+  registry.register('video', 'veo', provider);
   const assets = {
     providerReference: jest.fn().mockResolvedValue({
       url: 'https://private.example/signed',
@@ -116,13 +117,13 @@ it('resumes accepted tasks by polling without any submit or reference signing', 
   expect(provider.poll).toHaveBeenCalledWith('existing', context.signal);
 });
 it('rejects unsupported capabilities before calling the provider', async () => {
-  const { provider, executor, context } = setup('mock-video-basic');
+  const { provider, executor, context } = setup('veo-3-1-fast');
   await expect(
     executor.execute({
       ...context,
-      params: { ...context.params, generateAudio: true },
+      params: { ...context.params, duration: 4, aspectRatio: '1:1' },
     }),
-  ).rejects.toThrow('generated audio');
+  ).rejects.toThrow('aspectRatio');
   await expect(
     executor.execute({
       ...context,
@@ -132,6 +133,7 @@ it('rejects unsupported capabilities before calling the provider', async () => {
   await expect(
     executor.execute({
       ...context,
+      params: { ...context.params, duration: 4 },
       inputs: {
         ports: {
           end_image: [
@@ -145,7 +147,7 @@ it('rejects unsupported capabilities before calling the provider', async () => {
         },
       },
     }),
-  ).rejects.toThrow('end image');
+  ).rejects.toThrow('start image');
   expect(provider.submit).not.toHaveBeenCalled();
 });
 it('does not resubmit after a poll failure and cancels accepted tasks on abort', async () => {

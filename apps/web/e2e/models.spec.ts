@@ -1,4 +1,9 @@
 import { test, expect } from '@playwright/test';
+test.skip(
+  !process.env.CREATIONS_TEST_API,
+  'Start the isolated offline API harness and set CREATIONS_TEST_API.',
+);
+
 test('model availability, capability coercion, options, undo and retired-model recovery', async ({
   page,
   request,
@@ -13,12 +18,16 @@ test('model availability, capability coercion, options, undo and retired-model r
     await expect(page).toHaveURL(/\/spaces\/[a-f0-9-]+$/);
     id = new URL(page.url()).pathname.split('/').pop();
     const model = page.getByLabel('Model', { exact: true });
+    await model.selectOption('bytedance-seed/seedream-4.5');
     await expect(
-      model.getByRole('option', { name: 'Mock Image Compact', exact: true }),
+      model.getByRole('option', {
+        name: 'ByteDance Seed: Seedream 5.0 Pro',
+        exact: true,
+      }),
     ).toHaveCount(1);
     await expect(
-      model.getByRole('option', { name: /Image Studio/ }),
-    ).toBeDisabled();
+      model.getByRole('option', { name: /Studio \(custom adapter\)/ }),
+    ).toHaveCount(0);
     await page
       .getByLabel('Image Generator #1 prompt', { exact: true })
       .fill('Model capability test');
@@ -26,9 +35,9 @@ test('model availability, capability coercion, options, undo and retired-model r
       await page.getByRole('button', { name: 'Increase image count' }).click();
     await page.getByLabel('Aspect ratio', { exact: true }).selectOption('3:4');
     await page.getByLabel('Resolution', { exact: true }).selectOption('4K');
-    await model.selectOption('mock-image-compact');
+    await model.selectOption('bytedance-seed/seedream-5-0-pro');
     await expect(page.getByLabel('Aspect ratio', { exact: true })).toHaveValue(
-      '1:1',
+      '3:4',
     );
     await expect(page.getByLabel('Resolution', { exact: true })).toHaveValue(
       '1K',
@@ -37,7 +46,7 @@ test('model availability, capability coercion, options, undo and retired-model r
       'x1',
     );
     await page.getByRole('button', { name: 'Undo', exact: true }).click();
-    await expect(model).toHaveValue('auto');
+    await expect(model).toHaveValue('bytedance-seed/seedream-4.5');
     await expect(page.getByLabel('Aspect ratio', { exact: true })).toHaveValue(
       '3:4',
     );
@@ -47,12 +56,14 @@ test('model availability, capability coercion, options, undo and retired-model r
     await expect(page.getByLabel('Image count', { exact: true })).toContainText(
       'x4',
     );
-    await model.selectOption('mock-image-compact');
+    await model.selectOption('bytedance-seed/seedream-5-0-pro');
     await page.getByText('Advanced', { exact: true }).click();
-    await expect(page.getByLabel('Quality', { exact: true })).toHaveValue(
-      'standard',
+    await expect(page.getByLabel('Output format', { exact: true })).toHaveValue(
+      'png',
     );
-    await page.getByLabel('Quality', { exact: true }).selectOption('draft');
+    await page
+      .getByLabel('Output format', { exact: true })
+      .selectOption('jpeg');
     await page
       .getByRole('button', { name: 'Run Image Generator #1', exact: true })
       .click();
@@ -60,7 +71,9 @@ test('model availability, capability coercion, options, undo and retired-model r
       page.getByAltText('Generated image 1', { exact: true }),
     ).toBeVisible({ timeout: 20000 });
     await expect(
-      page.getByText('Generated with mock-image-compact', { exact: true }),
+      page.getByText('Generated with bytedance-seed/seedream-5-0-pro', {
+        exact: true,
+      }),
     ).toBeVisible();
     const space = await (await request.get(`/api/spaces/${id}`)).json();
     space.graph.nodes.find(

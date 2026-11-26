@@ -16,7 +16,6 @@ export function WorkspaceLayout({
   return (
     <div className="spaces-page">
       <WorkspaceNav active={active} creating={creating} onCreate={onCreate} />
-      <div className="workspace-header" aria-hidden="true" />
       <main className="spaces-content">{children}</main>
     </div>
   );

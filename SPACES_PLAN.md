@@ -1,3 +1,5 @@
+> Historical record: demo Mock/Custom providers and their integration scripts were removed. Use README.md for the current real-provider setup and offline test commands.
+
 # Hiveflow — Spaces Prototype Implementation Plan
 
 The project is **Hiveflow**. This plan covers its first feature: a node-based workflow canvas ("Spaces", like magnific.com/app/spaces). In this plan, "Space" is the name of that feature and its DB entity, not the project name. Users place nodes on an infinite canvas, connect them, and run them to generate images. This is a **prototype**: prioritize a clean architecture and a working end-to-end loop over polish.

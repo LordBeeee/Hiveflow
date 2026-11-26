@@ -1,5 +1,9 @@
-// Isolated PostgreSQL schema + in-memory storage + registered mock providers only.
+// Isolated PostgreSQL schema, in-memory storage and real adapters with offline HTTP fixtures.
 import 'reflect-metadata';
+import {
+  fixtureModels,
+  registerOfflineFixtures,
+} from './offline-provider-fixtures.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
@@ -71,7 +75,9 @@ try {
   };
   db = await new DataSource({
     ...options,
-    migrations: migrations.slice(0, -1),
+    migrations: migrations.filter(
+      (migration) => Number(migration.name.match(/\d+$/)?.[0]) < 1795200000000,
+    ),
   }).initialize();
   await db.runMigrations();
   const legacy = await db.getRepository(Space).save({
@@ -93,7 +99,6 @@ try {
     'space',
   );
   const config = new ConfigService({
-    MOCK_FAILURE_RATE: 0,
     PROVIDER_MAX_RETRIES: 0,
     PROVIDER_TIMEOUT_MS: 60000,
     VIDEO_TIMEOUT_MS: 60000,
@@ -131,37 +136,8 @@ try {
     config,
   );
   const providers = new ProviderRegistry();
-  providers.register(
-    'image',
-    'mock',
-    new (load('providers/mock-image.provider', 'MockImageProvider'))(
-      config,
-      async () => {},
-    ),
-  );
-  providers.register(
-    'tts',
-    'mock',
-    new (load('providers/mock-tts.provider', 'MockTtsProvider'))(
-      config,
-      async () => {},
-    ),
-  );
-  const videoProvider = new (load(
-    'providers/mock-video.provider',
-    'MockVideoProvider',
-  ))(config, db);
-  const originalSubmit = videoProvider.submit.bind(videoProvider);
-  videoProvider.submit = async (...args) => {
-    const task = await originalSubmit(...args);
-    await db.query(
-      "UPDATE mock_video_tasks SET created_at=now()-interval '1 minute' WHERE id=$1",
-      [task.taskId],
-    );
-    return task;
-  };
-  providers.register('video', 'mock-video', videoProvider);
-  const models = new ModelsService(config, providers);
+  registerOfflineFixtures(providers);
+  const models = new ModelsService(providers);
   const resolver = new (load('executors/input-resolver', 'InputResolver'))(
     db.getRepository(Run),
     assets,
@@ -172,7 +148,13 @@ try {
   );
   const costs = new CostsService(db, config, models, resolver, cache);
   const executors = [
+    new (load('executors/text.executor', 'TextExecutor'))(),
     new (load('executors/image-generator.executor', 'ImageGeneratorExecutor'))(
+      assets,
+      providers,
+      config,
+    ),
+    new (load('executors/assistant.executor', 'AssistantExecutor'))(
       assets,
       providers,
       config,
@@ -217,6 +199,8 @@ try {
     ],
     controllers: [
       CreationsController,
+      load('runs/costs.controller', 'CostsController'),
+      load('runs/costs.controller', 'UsageController'),
       AssetsController,
       ExecutionController,
       ModelsController,
@@ -259,11 +243,26 @@ try {
     contextsBefore,
   );
   await request('/creations/unknown/runs', undefined, 400);
+  for (const kind of shared.creationKinds) {
+    for (const model of ['', 'auto']) {
+      const params = {
+        ...shared.nodeRegistry[shared.creationNodeTypes[kind]].defaultParams,
+        model,
+        [kind === 'audio' ? 'script' : 'prompt']: 'Preserved draft',
+      };
+      await request(`/creations/${kind}/estimate`, { params }, 400);
+      await request(`/creations/${kind}/runs`, { params }, 400);
+    }
+    assert.equal((await request(`/creations/${kind}/runs`)).runs.length, 0);
+  }
   const records = [];
   for (const kind of shared.creationKinds) {
-    const params = structuredClone(
-      shared.nodeRegistry[shared.creationNodeTypes[kind]].defaultParams,
-    );
+    const type = shared.creationNodeTypes[kind];
+    const params = shared.coerceParamsForModel(
+      type,
+      shared.nodeRegistry[type].defaultParams,
+      shared.findModel(fixtureModels[kind === 'audio' ? 'tts' : kind]),
+    ).params;
     params[kind === 'audio' ? 'script' : 'prompt'] = 'A quiet lake at sunrise';
     const input = { params };
     const quote = await request(`/creations/${kind}/estimate`, input, 201);
@@ -405,6 +404,76 @@ try {
   const workflow = await runs.start(user, legacy.id, workflowNode.id);
   await runs.process(workflow.runId);
   assert.equal((await runs.history(user, legacy.id))[0].status, 'succeeded');
+  // Mixed workflows still execute and settle costs through the same real adapters.
+  const makeNode = (type, params = {}) => ({
+    id: randomUUID(),
+    type,
+    position: { x: 0, y: 0 },
+    params: {
+      ...shared.nodeRegistry[type].defaultParams,
+      ...(shared.nodeRegistry[type].modelKind
+        ? { model: fixtureModels[shared.nodeRegistry[type].modelKind] }
+        : {}),
+      ...params,
+    },
+  });
+  const textNode = makeNode('text', { value: 'A quiet lake' });
+  const assistantNode = makeNode('assistant', {
+    message: 'Write narration',
+    preset: 'script_writer',
+  });
+  const imageNode = makeNode('image_generator');
+  const voiceNode = makeNode('voiceover');
+  const videoNode = makeNode('video_generator');
+  const connect = (source, target, sourceHandle, targetHandle) => ({
+    id: randomUUID(),
+    source: source.id,
+    target: target.id,
+    sourceHandle,
+    targetHandle,
+  });
+  const mixedGraph = {
+    ...shared.emptyGraph(),
+    nodes: [textNode, assistantNode, imageNode, voiceNode, videoNode],
+    edges: [
+      connect(textNode, assistantNode, 'text', 'context'),
+      connect(assistantNode, voiceNode, 'text', 'script'),
+      connect(textNode, imageNode, 'text', 'prompt'),
+      connect(textNode, videoNode, 'text', 'prompt'),
+      connect(imageNode, videoNode, 'image', 'start_image'),
+    ],
+  };
+  await db.getRepository(Space).update(legacy.id, { graph: mixedGraph });
+  const drain = async (batchId) => {
+    for (let attempt = 0; attempt < 20; attempt++) {
+      for (const id of queued.splice(0)) await runs.process(id);
+      await batches.reconcile();
+      const batch = await db
+        .getRepository(load('runs/batch.entity', 'BatchEntity'))
+        .findOneByOrFail({ id: batchId });
+      if (batch.status !== 'running') return batch;
+    }
+    throw Error('Offline batch did not finish');
+  };
+  const mixed = await batches.start(user, legacy.id);
+  assert.equal((await drain(mixed.batchId)).status, 'succeeded');
+  const mixedHistory = await runs.history(user, legacy.id);
+  assert.equal(
+    mixedHistory.filter(
+      (run) => run.batchId === mixed.batchId && run.status === 'succeeded',
+    ).length,
+    5,
+  );
+  const cachedBatch = await batches.start(user, legacy.id);
+  assert.equal((await drain(cachedBatch.batchId)).status, 'succeeded');
+  const cachedHistory = (await runs.history(user, legacy.id)).filter(
+    (run) => run.batchId === cachedBatch.batchId && run.nodeType !== 'text',
+  );
+  assert.equal(cachedHistory.length, 4);
+  assert(cachedHistory.every((run) => run.cacheHit));
+  const canceledBatch = await batches.start(user, legacy.id, true);
+  await batches.cancel(user, canceledBatch.batchId);
+  assert.equal((await drain(canceledBatch.batchId)).status, 'canceled');
   await db.getRepository(Space).delete(legacy.id);
   assert.equal(
     (
@@ -417,7 +486,7 @@ try {
   );
   assert.equal((await request('/assets?spaceId=' + legacy.id)).total, 0);
   console.log(
-    'PASS: isolated migration/backfill, read-only page entry, all three real mock executors, no hidden Spaces, dedup/cache, cost approval/refund, reference upload, ownership, Library/downloads and existing workflow execution/deletion.',
+    'PASS: isolated migration/backfill, read-only page entry, all three production executors with offline HTTP fixtures, no hidden Spaces, dedup/cache, cost approval/refund, reference upload, ownership, Library/downloads mixed workflow execution/cache/cancellation and existing workflow deletion.',
   );
   if (process.argv.includes('--serve')) {
     const running = new Set();
@@ -425,15 +494,24 @@ try {
       for (const id of queued.splice(0)) {
         if (running.has(id)) continue;
         running.add(id);
-        void runs.process(id).finally(() => running.delete(id));
+        void runs
+          .process(id)
+          .then(() => batches.reconcile())
+          .finally(() => running.delete(id));
       }
     }, 100);
     console.log(`CREATIONS_TEST_API=${base}`);
+    console.log(`CREATIONS_TEST_SCHEMA=${schema}`);
     await new Promise((resolve) => {
       process.once('SIGINT', resolve);
       process.once('SIGTERM', resolve);
+      process.stdin.resume();
+      process.stdin.once('data', resolve);
     });
     clearInterval(timer);
+    process.stdin.pause();
+    while (running.size)
+      await new Promise((resolve) => setTimeout(resolve, 20));
   }
 } finally {
   if (app) await app.close();

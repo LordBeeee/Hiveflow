@@ -30,7 +30,7 @@ try {
       const json = data => new Response(JSON.stringify({ code: 0, data }), { headers: { 'content-type': 'application/json' } });
       if (init.method === 'POST') {
         assert.equal(submitted, false); submitted = true;
-        assert.equal(path, process.env.DEFAULT_VIDEO_MODEL === 'kling-3-0' ? '/image-to-video/kling-3.0' : '/image-to-video/kling-3.0-turbo');
+        assert.equal(path, process.env.LIVE_CHECK_VIDEO_MODEL === 'kling-3-0' ? '/image-to-video/kling-3.0' : '/image-to-video/kling-3.0-turbo');
         const body = JSON.parse(init.body);
         assert.equal(body.settings.duration, 3);
         assert.equal(body.settings.resolution, '720p');
@@ -44,7 +44,7 @@ try {
       return json([{ id: 'offline-task', status: 'succeeded', outputs: [{ type: 'video', url: 'https://cdn.example/offline.mp4', duration: '3' }], billing: [{ charge_type: 'cash', amount: '0.1', currency: 'USD' }] }]);
     };
   `;
-  for (const model of ['mock-video', 'kling-3-0']) {
+  for (const model of ['', 'kling-3-0']) {
     const result = spawnSync(
       process.execPath,
       [
@@ -61,7 +61,7 @@ try {
           HIVEFLOW_LIVE_CHECK: '1',
           KLING_API_KEY: 'offline-fixture',
           KLING_BASE_URL: 'https://kling.example',
-          DEFAULT_VIDEO_MODEL: model,
+          LIVE_CHECK_VIDEO_MODEL: model,
         },
       },
     );
@@ -96,7 +96,7 @@ try {
         ...env,
         HIVEFLOW_LIVE_CHECK: '1',
         KLING_API_KEY: 'offline-fixture',
-        DEFAULT_VIDEO_MODEL: 'kling-3-0',
+        LIVE_CHECK_VIDEO_MODEL: 'kling-3-0',
       },
     },
   );

@@ -26,10 +26,6 @@ const selected = shared.openrouterCatalog;
 for (const mode of ['none', 'openrouter', 'seedance', 'kling', 'veo']) {
   const configured = mode === 'openrouter';
   const registry = new ProviderRegistry();
-  for (const kind of ['llm', 'image', 'tts', 'video'])
-    registry.register(kind, kind === 'video' ? 'mock-video' : 'mock', {
-      id: 'mock',
-    });
   const config = new ConfigService({
     OPENROUTER_API_KEY: configured ? 'offline-fixture' : '',
     OPENROUTER_BASE_URL: 'https://openrouter.ai/api/v1',
@@ -41,10 +37,6 @@ for (const mode of ['none', 'openrouter', 'seedance', 'kling', 'veo']) {
     GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON: mode === 'veo' ? fixtureCredentials : '',
     MAX_VIDEO_MB: 250,
     PROVIDER_TIMEOUT_MS: 1000,
-    DEFAULT_IMAGE_MODEL: 'mock-image',
-    DEFAULT_LLM_MODEL: 'mock-llm',
-    DEFAULT_TTS_MODEL: 'mock-tts',
-    DEFAULT_VIDEO_MODEL: 'mock-video',
   });
   registerOpenRouter(registry, config);
   registerSeedance(registry, config);
@@ -54,7 +46,7 @@ for (const mode of ['none', 'openrouter', 'seedance', 'kling', 'veo']) {
   Module({
     controllers: [ModelsController],
     providers: [
-      { provide: ModelsService, useValue: new ModelsService(config, registry) },
+      { provide: ModelsService, useValue: new ModelsService(registry) },
     ],
   })(CatalogCheckModule);
   const app = await NestFactory.create(CatalogCheckModule, { logger: false });
@@ -90,22 +82,14 @@ for (const mode of ['none', 'openrouter', 'seedance', 'kling', 'veo']) {
       if (!configured && row.status !== 'removed')
         assert.match(actual.unavailableReason, /not configured/);
     }
-    assert(
-      models
-        .filter((model) => model.isDefault)
-        .every((model) => model.id.startsWith('mock-')),
-    );
-    assert(
-      models
-        .filter((model) => model.provider === 'custom')
-        .every((model) => !model.available),
-    );
+    assert(models.every((model) => !/^(mock|custom)/.test(model.provider)));
+    assert(models.every((model) => !('isDefault' in model)));
     for (const kind of ['llm', 'image', 'tts', 'video']) {
       const rows = await (await fetch(`${base}/models?kind=${kind}`)).json();
       assert(rows.every((model) => model.kind === kind));
     }
     console.log(
-      `GET /models passed: ${mode} credential configuration (dummy), ${selected.length} OpenRouter, 2 Seedance, 2 Kling and 2 Veo rows; mocks remain defaults.`,
+      `GET /models passed: ${mode} credential configuration (dummy), ${selected.length} OpenRouter, 2 Seedance, 2 Kling and 2 Veo rows; explicit model selection only.`,
     );
   } finally {
     await app.close();

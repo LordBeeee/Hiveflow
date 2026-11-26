@@ -38,7 +38,6 @@ describe('chosen OpenRouter catalog', () => {
       const parsed = availableModelSchema.parse({
         ...model,
         available: true,
-        isDefault: false,
       });
       expect(parsed.capabilities).toEqual(model.capabilities);
       expect(parsed.pricing).toEqual(model.pricing);

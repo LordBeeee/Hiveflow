@@ -68,49 +68,51 @@ function Results({ run, kind }: { run?: CreationRun; kind: CreationKind }) {
     );
   return (
     <div className={`creation-results creation-results-${kind}`}>
+      <div className="creation-result-info">
+        <span className="creation-status" data-status={run.status}>
+          {run.status}
+        </span>
+        <strong>{run.model}</strong>
+        <p>
+          {String(run.params[kind === 'audio' ? 'script' : 'prompt'] ?? '')}
+        </p>
+        <small>{new Date(run.createdAt).toLocaleString()}</small>
+      </div>
       {run.cacheHit && (
         <p className="creation-result-note">
           Reused cached result · no provider call
         </p>
       )}
-      {run.provider?.startsWith('mock') && (
-        <p className="creation-result-note">
-          Mock preview
-          {kind === 'audio'
-            ? ' · tone, not spoken narration'
-            : kind === 'video'
-              ? ' · fixed silent test video'
-              : ''}
-        </p>
-      )}
-      {media.map((asset) => (
-        <div className="creation-output" key={asset.assetId}>
-          {kind === 'image' ? (
-            <img
-              src={asset.url ?? `/api/assets/${asset.assetId}`}
-              alt="Generated image"
-            />
-          ) : kind === 'video' ? (
-            <video
-              src={asset.url ?? `/api/assets/${asset.assetId}`}
-              controls
-              playsInline
-              preload="metadata"
-            />
-          ) : (
-            <audio
-              src={asset.url ?? `/api/assets/${asset.assetId}`}
-              controls
-              preload="metadata"
-            />
-          )}
-          <a href={`/api/assets/${asset.assetId}?download=1`}>
-            <Icon name="download" size={15} />
-            Download
-          </a>
-        </div>
-      ))}
-      <p className="creation-result-note">{run.model}</p>
+      <div className="creation-media-grid">
+        {media.map((asset) => (
+          <div className="creation-output" key={asset.assetId}>
+            {kind === 'image' ? (
+              <img
+                src={asset.url ?? `/api/assets/${asset.assetId}`}
+                alt="Generated image"
+              />
+            ) : kind === 'video' ? (
+              <video
+                src={asset.url ?? `/api/assets/${asset.assetId}`}
+                controls
+                playsInline
+                preload="metadata"
+              />
+            ) : (
+              <audio
+                src={asset.url ?? `/api/assets/${asset.assetId}`}
+                controls
+                preload="metadata"
+              />
+            )}
+            <a href={`/api/assets/${asset.assetId}?download=1`}>
+              <Icon name="download" size={15} />
+              Download
+            </a>
+          </div>
+        ))}
+      </div>
+      <p className="creation-result-note">Saved to Library</p>
     </div>
   );
 }
@@ -147,6 +149,7 @@ export function CreationPage({ kind }: { kind: CreationKind }) {
     const selectedModel = model;
     setDraft((current) => {
       const coerced = coerceParamsForModel(type, current.params, selectedModel);
+      coerced.params.model = current.params.model;
       return JSON.stringify(coerced.params) === JSON.stringify(current.params)
         ? current
         : { ...current, params: coerced.params };
@@ -186,6 +189,7 @@ export function CreationPage({ kind }: { kind: CreationKind }) {
       ),
     enabled:
       !!quoteSignature &&
+      !!model &&
       !!text.trim() &&
       quoteSignature === signature &&
       !uploading,
@@ -228,6 +232,19 @@ export function CreationPage({ kind }: { kind: CreationKind }) {
     },
   });
   const busy = generate.isPending || !!active || uploading;
+  const settingsSummary = (
+    kind === 'audio'
+      ? [draft.params.voice, draft.params.language, `${draft.params.speed}×`]
+      : [
+          draft.params.aspectRatio,
+          draft.params.resolution,
+          kind === 'video'
+            ? `${draft.params.duration}s`
+            : `${draft.params.count} images`,
+        ]
+  )
+    .filter(Boolean)
+    .join(' · ');
   async function session() {
     if (history.data?.sessionId) return history.data.sessionId;
     sessionPromise.current ??= request(`/creations/${kind}/session`, {
@@ -316,6 +333,7 @@ export function CreationPage({ kind }: { kind: CreationKind }) {
             <div key={id}>
               <img src={`/api/assets/${id}`} alt={label} />
               <button
+                type="button"
                 aria-label={`Remove ${label} ${id}`}
                 disabled={busy}
                 onClick={() =>
@@ -347,258 +365,333 @@ export function CreationPage({ kind }: { kind: CreationKind }) {
         if (!createSpace.isPending) createSpace.mutate();
       }}
     >
-      <div className="creation-heading">
-        <div>
-          <div className="spaces-breadcrumb">Workspace / Create</div>
-          <h1>Create {kind === 'audio' ? 'voice' : kind}</h1>
-        </div>
-        <nav aria-label="Creation tools">
-          {creationTools.map((entry) => (
-            <a
-              key={entry.label}
-              href={entry.href}
-              aria-current={entry.type === type ? 'page' : undefined}
-            >
-              <Icon name={entry.icon} size={16} />
-              {entry.label}
-            </a>
-          ))}
-        </nav>
-      </div>
-      {createSpace.error && (
-        <p className="page-error" role="alert">
-          {createSpace.error.message}
-        </p>
-      )}
-      <div className="creation-workbench">
-        <form
-          className="creation-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (
-              !busy &&
-              quote.data &&
-              quoteSignature === signature &&
-              !quote.isFetching
-            )
-              generate.mutate();
-          }}
-        >
-          <fieldset disabled={busy}>
-            <section>
-              <h2>Model</h2>
-              <ModelControls
-                type={type}
-                params={draft.params}
-                onChange={update}
-                onNotice={setNotice}
-              />
-            </section>
-            {kind === 'image' &&
-              referenceInput(
-                'references',
-                'Reference images',
-                model?.capabilities.supportsImageInput === false,
-              )}
-            {kind === 'video' && (
-              <section>
-                <h2>Frames</h2>
-                {referenceInput(
-                  'startImage',
-                  model?.capabilities.requiresStartImage
-                    ? 'Start image (required)'
-                    : 'Start image',
-                )}
-                {referenceInput(
-                  'endImage',
-                  'End image',
-                  !model?.capabilities.supportsEndImage,
-                )}
-              </section>
-            )}
-            <section>
-              <label className="creation-text-label" htmlFor="creation-text">
-                {kind === 'audio' ? 'Script' : 'Prompt'}
-                <span>
-                  {text.length}
-                  {model?.capabilities.maxPromptChars
-                    ? ` / ${model.capabilities.maxPromptChars}`
-                    : kind === 'audio'
-                      ? ' / 5000'
-                      : ''}
-                </span>
-              </label>
-              <textarea
-                id="creation-text"
-                aria-label={kind === 'audio' ? 'Script' : 'Prompt'}
-                value={text}
-                maxLength={
-                  kind === 'audio'
-                    ? 5000
-                    : (model?.capabilities.maxPromptChars ?? 32000)
-                }
-                placeholder={
-                  kind === 'audio'
-                    ? 'Write what you want your voice to say…'
-                    : 'Describe what you want to create…'
-                }
-                onChange={(event) =>
-                  update({
-                    [kind === 'audio' ? 'script' : 'prompt']:
-                      event.target.value,
-                  })
-                }
-                required
-              />
-            </section>
-            <section>
-              <h2>Settings</h2>
-              <GenerationSettings
-                kind={kind}
-                params={draft.params}
-                model={model}
-                onChange={update}
-                hasStartImage={!!draft.startImage}
-              />
-              <label className="creation-checkbox">
-                <input
-                  type="checkbox"
-                  checked={draft.force}
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      force: event.target.checked,
-                    }))
-                  }
-                />
-                Generate fresh (ignore cache)
-              </label>
-            </section>
-          </fieldset>
-          {notice && (
-            <p className="creation-notice" role="status">
-              {notice}
-            </p>
-          )}
-          {quote.error && quoteSignature === signature && (
-            <p className="creation-notice" role="alert">
-              {quote.error.message}
-            </p>
-          )}
-          {generate.error && (
-            <p className="creation-notice" role="alert">
-              {generate.error.message}
-            </p>
-          )}
-          {cancel.error && (
-            <p className="creation-notice" role="alert">
-              {cancel.error.message}
-            </p>
-          )}
-          {uploading && <p role="status">Uploading reference…</p>}
-          <div className="creation-submit">
-            <span>
-              Estimated cost
-              <strong>
-                {quote.data && quoteSignature === signature && !quote.isFetching
-                  ? `Up to ${quote.data.units} credits`
-                  : '—'}
-              </strong>
-            </span>
-            <button
-              type="submit"
-              disabled={
-                busy ||
-                !quote.data ||
-                quote.isFetching ||
-                quoteSignature !== signature ||
-                !!quote.error
-              }
-            >
-              {generate.isPending
-                ? 'Submitting…'
-                : `Generate ${kind === 'audio' ? 'voice' : kind}`}
-            </button>
+      <div className="creation-studio">
+        <div className="creation-heading">
+          <div>
+            <h1>Create {kind === 'audio' ? 'voice' : kind}</h1>
+            <p>Choose your model. Bring your idea to life.</p>
           </div>
-        </form>
-        <section className="creation-preview" aria-label="Generation result">
-          <Results run={selected} kind={kind} />
-          {active && (
-            <div className="creation-active" role="status">
-              <span>
-                {active.status === 'queued' ? 'Queued' : 'Generating'}
-                {active.progress != null ? ` · ${active.progress}%` : ''}
-              </span>
-              <button
-                disabled={cancel.isPending}
-                onClick={() => cancel.mutate(active.runId)}
+          <nav aria-label="Creation tools">
+            {creationTools.map((entry) => (
+              <a
+                key={entry.label}
+                href={entry.href}
+                aria-current={entry.type === type ? 'page' : undefined}
               >
-                Cancel generation
+                <Icon name={entry.icon} size={16} />
+                {entry.label}
+              </a>
+            ))}
+          </nav>
+        </div>
+        {createSpace.error && (
+          <p className="page-error" role="alert">
+            {createSpace.error.message}
+          </p>
+        )}
+        <div className="creation-workbench">
+          <form
+            className="creation-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (
+                !busy &&
+                model &&
+                quote.data &&
+                quoteSignature === signature &&
+                !quote.isFetching
+              )
+                generate.mutate();
+            }}
+          >
+            <fieldset className="creation-form-body" disabled={busy}>
+              <section>
+                <h2>Model</h2>
+                <ModelControls
+                  variant="panel"
+                  type={type}
+                  params={draft.params}
+                  onChange={update}
+                  onNotice={setNotice}
+                />
+              </section>
+              {kind === 'image' &&
+                referenceInput(
+                  'references',
+                  'Reference images',
+                  model?.capabilities.supportsImageInput === false,
+                )}
+              {kind === 'video' && (
+                <section>
+                  <h2>Frames</h2>
+                  {referenceInput(
+                    'startImage',
+                    model?.capabilities.requiresStartImage
+                      ? 'Start image (required)'
+                      : 'Start image',
+                  )}
+                  {referenceInput(
+                    'endImage',
+                    'End image',
+                    !model?.capabilities.supportsEndImage,
+                  )}
+                </section>
+              )}
+              <section>
+                <label className="creation-text-label" htmlFor="creation-text">
+                  {kind === 'audio' ? 'Script' : 'Prompt'}
+                  <span>
+                    {text.length}
+                    {model?.capabilities.maxPromptChars
+                      ? ` / ${model.capabilities.maxPromptChars}`
+                      : kind === 'audio'
+                        ? ' / 5000'
+                        : ''}
+                  </span>
+                </label>
+                <textarea
+                  id="creation-text"
+                  aria-label={kind === 'audio' ? 'Script' : 'Prompt'}
+                  value={text}
+                  maxLength={
+                    kind === 'audio'
+                      ? 5000
+                      : (model?.capabilities.maxPromptChars ?? 32000)
+                  }
+                  placeholder={
+                    kind === 'audio'
+                      ? 'Write what you want your voice to say…'
+                      : 'Describe what you want to create…'
+                  }
+                  onChange={(event) =>
+                    update({
+                      [kind === 'audio' ? 'script' : 'prompt']:
+                        event.target.value,
+                    })
+                  }
+                  required
+                />
+              </section>
+            </fieldset>
+            <div className="creation-form-footer">
+              <details className="creation-settings-panel">
+                <summary>
+                  <span>
+                    <strong>Settings</strong>
+                    <small>{settingsSummary}</small>
+                  </span>
+                  <span
+                    className="creation-settings-chevron"
+                    aria-hidden="true"
+                  >
+                    ⌄
+                  </span>
+                </summary>
+                <fieldset disabled={busy}>
+                  <GenerationSettings
+                    kind={kind}
+                    params={draft.params}
+                    model={model}
+                    onChange={update}
+                    hasStartImage={!!draft.startImage}
+                  />
+                  <label className="creation-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={draft.force}
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          force: event.target.checked,
+                        }))
+                      }
+                    />
+                    Generate fresh (ignore cache)
+                  </label>
+                </fieldset>
+              </details>
+              {notice && (
+                <p className="creation-notice" role="status">
+                  {notice}
+                </p>
+              )}
+              {quote.error && quoteSignature === signature && (
+                <p className="creation-notice" role="alert">
+                  {quote.error.message}
+                </p>
+              )}
+              {generate.error && (
+                <p className="creation-notice" role="alert">
+                  {generate.error.message}
+                </p>
+              )}
+              {cancel.error && (
+                <p className="creation-notice" role="alert">
+                  {cancel.error.message}
+                </p>
+              )}
+              {uploading && <p role="status">Uploading reference…</p>}
+              <div className="creation-submit">
+                <span>
+                  Estimated cost
+                  <strong>
+                    {quote.data &&
+                    quoteSignature === signature &&
+                    !quote.isFetching
+                      ? `Up to ${quote.data.units} credits`
+                      : '—'}
+                  </strong>
+                </span>
+                <button
+                  type="submit"
+                  disabled={
+                    busy ||
+                    !model ||
+                    !quote.data ||
+                    quote.isFetching ||
+                    quoteSignature !== signature ||
+                    !!quote.error
+                  }
+                >
+                  {generate.isPending
+                    ? 'Submitting…'
+                    : `Generate ${kind === 'audio' ? 'voice' : kind}`}
+                </button>
+              </div>
+            </div>
+          </form>
+          <section className="creation-preview" aria-label="Generation result">
+            <header className="creation-panel-heading">
+              <h2>Preview</h2>
+              <span>
+                {selected ? 'Your creation' : 'Your next idea starts here'}
+              </span>
+            </header>
+            <div className="creation-preview-body">
+              <Results run={selected} kind={kind} />
+            </div>
+            {active && (
+              <div className="creation-active" role="status">
+                <span>
+                  {active.status === 'queued' ? 'Queued' : 'Generating'}
+                  {active.progress != null ? ` · ${active.progress}%` : ''}
+                </span>
+                <button
+                  disabled={cancel.isPending}
+                  onClick={() => cancel.mutate(active.runId)}
+                >
+                  Cancel generation
+                </button>
+              </div>
+            )}
+          </section>
+          <details
+            className="creation-history"
+            aria-label="Recent generations"
+            open
+          >
+            <summary>
+              <h2>Recent generations</h2>
+              <span className="creation-history-count">
+                {history.data?.runs.length ?? 0}
+              </span>
+            </summary>
+            <div className="creation-history-toolbar">
+              <span>Latest creations</span>
+              <button
+                aria-label="Refresh history"
+                onClick={() => void history.refetch()}
+              >
+                <Icon name="redo" size={17} />
               </button>
             </div>
-          )}
-        </section>
-        <aside className="creation-history" aria-label="Recent generations">
-          <header>
-            <h2>Recent</h2>
-            <button
-              aria-label="Refresh history"
-              onClick={() => void history.refetch()}
-            >
-              <Icon name="redo" size={17} />
-            </button>
-          </header>
-          {history.isPending && <p role="status">Loading history…</p>}
-          {history.error && (
-            <p role="alert">
-              Could not load history.{' '}
-              <button onClick={() => void history.refetch()}>Retry</button>
-            </p>
-          )}
-          {history.data?.runs.length === 0 && (
-            <p>Your creations will appear here.</p>
-          )}
-          {history.data?.runs.map((run) => (
-            <button
-              key={run.runId}
-              className={`creation-history-item ${selected?.runId === run.runId ? 'selected' : ''}`}
-              onClick={() => {
-                setSelectedId(run.runId);
-              }}
-            >
-              <Icon name={tool.icon} size={17} />
-              <span>
-                <strong>
-                  {String(
-                    run.params[kind === 'audio' ? 'script' : 'prompt'] ?? '',
-                  ).slice(0, 80)}
-                </strong>
-                <small>
-                  {run.status} · {new Date(run.createdAt).toLocaleString()}
-                </small>
-              </span>
-            </button>
-          ))}
-          {selected && (
-            <button
-              className="creation-reuse"
-              disabled={busy}
-              onClick={() => {
-                setDraft(
-                  creationRequestSchema.parse({
-                    params: selected.params,
-                    references: selected.references,
-                    startImage: selected.startImage,
-                    endImage: selected.endImage,
-                  }),
-                );
-                setNotice('Settings restored from this generation.');
-              }}
-            >
-              Use selected settings
-            </button>
-          )}
-        </aside>
+            <div className="creation-history-list">
+              {history.isPending && <p role="status">Loading history…</p>}
+              {history.error && (
+                <p role="alert">
+                  Could not load history.{' '}
+                  <button onClick={() => void history.refetch()}>Retry</button>
+                </p>
+              )}
+              {history.data?.runs.length === 0 && (
+                <p>Your creations will appear here.</p>
+              )}
+              {history.data?.runs.map((run) => (
+                <button
+                  key={run.runId}
+                  className={`creation-history-item ${selected?.runId === run.runId ? 'selected' : ''}`}
+                  aria-pressed={selected?.runId === run.runId}
+                  onClick={() => {
+                    setSelectedId(run.runId);
+                  }}
+                >
+                  <span className="creation-history-thumbnail">
+                    {kind === 'image' && run.output?.image?.[0] ? (
+                      <img
+                        src={
+                          run.output.image[0].url ??
+                          `/api/assets/${run.output.image[0].assetId}`
+                        }
+                        alt=""
+                        loading="lazy"
+                      />
+                    ) : kind === 'video' && run.output?.video?.[0] ? (
+                      <video
+                        src={
+                          run.output.video[0].url ??
+                          `/api/assets/${run.output.video[0].assetId}`
+                        }
+                        muted
+                        playsInline
+                        preload="metadata"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <Icon name={tool.icon} size={20} />
+                    )}
+                    <span
+                      className="creation-history-dot"
+                      data-status={run.status}
+                    />
+                  </span>
+                  <span className="creation-history-text">
+                    <strong>
+                      {String(
+                        run.params[kind === 'audio' ? 'script' : 'prompt'] ??
+                          '',
+                      ).slice(0, 80)}
+                    </strong>
+                    <small>
+                      {run.status} · {new Date(run.createdAt).toLocaleString()}
+                    </small>
+                    <small className="creation-history-model">
+                      {run.model}
+                    </small>
+                  </span>
+                </button>
+              ))}
+            </div>
+            {selected && (
+              <button
+                className="creation-reuse"
+                disabled={busy}
+                onClick={() => {
+                  setDraft(
+                    creationRequestSchema.parse({
+                      params: selected.params,
+                      references: selected.references,
+                      startImage: selected.startImage,
+                      endImage: selected.endImage,
+                    }),
+                  );
+                  setNotice('Settings restored from this generation.');
+                }}
+              >
+                Use selected settings
+              </button>
+            )}
+          </details>
+        </div>
       </div>
     </WorkspaceLayout>
   );

@@ -17,7 +17,6 @@ export function HomePage() {
       <div className="home-content">
         <div className="spaces-heading">
           <div>
-            <div className="spaces-breadcrumb">Workspace / Home</div>
             <h1>What would you like to create?</h1>
             <p>Pick a tool and make your next idea happen.</p>
           </div>

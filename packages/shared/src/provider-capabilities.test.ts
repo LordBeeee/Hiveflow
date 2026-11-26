@@ -56,7 +56,6 @@ describe('provider capability contracts', () => {
       availableModelSchema.parse({
         ...discrete,
         available: true,
-        isDefault: false,
       }).capabilities,
     ).toEqual(discrete.capabilities);
   });

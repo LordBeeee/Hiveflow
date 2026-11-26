@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { findModel, type CostEstimate } from '@hiveflow/shared';
+import { type CostEstimate } from '@hiveflow/shared';
 import { estimateCost } from './costs';
 import { executionApi } from './execution';
 import { useRunStore } from '../store/runs';
@@ -107,15 +107,7 @@ export function RunControls({
                 are released when inputs or cache hits are resolved.
               </p>
             )}
-            <p>
-              {quote.nodes.every(
-                (node) =>
-                  !node.providerCall ||
-                  findModel(node.model ?? '')?.provider.startsWith('mock'),
-              )
-                ? 'Mock runs use simulated credits; no provider charges.'
-                : 'Abstract estimates; provider pricing may differ.'}
-            </p>
+            <p>Abstract estimates; provider pricing may differ.</p>
             {quote.limitMessage && <p role="alert">{quote.limitMessage}</p>}
             <div className="cost-dialog-actions">
               <button disabled={pending} onClick={() => setQuote(null)}>

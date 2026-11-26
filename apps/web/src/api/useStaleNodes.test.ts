@@ -1,12 +1,36 @@
 import { expect, it } from 'vitest';
 import {
   emptyGraph,
-  executionHash,
+  executionHash as hash,
+  modelCatalog,
+  findModel,
+  validateModelParams,
   nodeRegistry,
   type NodeRun,
   resolveNodeInputs,
 } from '@hiveflow/shared';
-import { computeStaleNodes } from './useStaleNodes';
+import { computeStaleNodes as compute } from './useStaleNodes';
+const models = modelCatalog.map((model) => ({
+  ...model,
+  available: true,
+}));
+const computeStaleNodes: typeof compute = (
+  graph,
+  latest,
+  successes,
+  assetHash,
+  catalog = models,
+  registry,
+) => compute(graph, latest, successes, assetHash, catalog, registry);
+const executionHash: typeof hash = (type, params, inputs, registry) =>
+  hash(
+    type,
+    params.model
+      ? validateModelParams(params, findModel(String(params.model))!)
+      : params,
+    inputs,
+    registry,
+  );
 
 it('shares preset-version hashes and propagates context changes through Assistant to images', async () => {
   const text = {
@@ -18,13 +42,19 @@ it('shares preset-version hashes and propagates context changes through Assistan
   const assistant = {
     id: 'assistant',
     type: 'assistant' as const,
-    params: { ...nodeRegistry.assistant.defaultParams },
+    params: {
+      ...nodeRegistry.assistant.defaultParams,
+      model: 'google/gemini-4-neon',
+    },
     position: { x: 0, y: 0 },
   };
   const image = {
     id: 'image',
     type: 'image_generator' as const,
-    params: { ...nodeRegistry.image_generator.defaultParams },
+    params: {
+      ...nodeRegistry.image_generator.defaultParams,
+      model: 'bytedance-seed/seedream-4.5',
+    },
     position: { x: 0, y: 0 },
   };
   const graph = {
@@ -53,7 +83,7 @@ it('shares preset-version hashes and propagates context changes through Assistan
       output,
       inputHash: await executionHash(
         'assistant',
-        { ...assistant.params, model: 'mock-llm' },
+        { ...assistant.params, model: 'google/gemini-4-neon' },
         await resolveNodeInputs(
           graph,
           assistant,
@@ -66,7 +96,7 @@ it('shares preset-version hashes and propagates context changes through Assistan
       output: null,
       inputHash: await executionHash(
         'image_generator',
-        { ...image.params, model: 'mock-image' },
+        { ...image.params, model: 'bytedance-seed/seedream-4.5' },
         await resolveNodeInputs(
           graph,
           image,
@@ -96,7 +126,10 @@ it('propagates changed upstream prompts through an image chain and clears after 
   const a = {
     id: 'a',
     type: 'image_generator' as const,
-    params: { ...nodeRegistry.image_generator.defaultParams },
+    params: {
+      ...nodeRegistry.image_generator.defaultParams,
+      model: 'bytedance-seed/seedream-4.5',
+    },
     position: { x: 0, y: 0 },
   };
   const b = { ...a, id: 'b' };
@@ -128,7 +161,7 @@ it('propagates changed upstream prompts through an image chain and clears after 
     a: {
       inputHash: await executionHash(
         a.type,
-        { ...a.params, model: 'mock-image' },
+        { ...a.params, model: 'bytedance-seed/seedream-4.5' },
         { ports: { prompt: [{ kind: 'text', value: 'original' }] } },
       ),
       output: { image: [image] },
@@ -136,7 +169,7 @@ it('propagates changed upstream prompts through an image chain and clears after 
     b: {
       inputHash: await executionHash(
         b.type,
-        { ...b.params, model: 'mock-image' },
+        { ...b.params, model: 'bytedance-seed/seedream-4.5' },
         {
           ports: {
             references: [{ sha256: 'asset-hash' }].map((reference) => ({
@@ -163,7 +196,7 @@ it('propagates changed upstream prompts through an image chain and clears after 
       ...success.a,
       inputHash: await executionHash(
         a.type,
-        { ...a.params, model: 'mock-image' },
+        { ...a.params, model: 'bytedance-seed/seedream-4.5' },
         { ports: { prompt: [{ kind: 'text', value: 'new prompt' }] } },
       ),
       status: 'failed' as const,
@@ -190,7 +223,10 @@ it('marks an unavailable reference stale without throwing or using an expiring U
     {
       id: 'target',
       type: 'image_generator',
-      params: { ...nodeRegistry.image_generator.defaultParams },
+      params: {
+        ...nodeRegistry.image_generator.defaultParams,
+        model: 'bytedance-seed/seedream-4.5',
+      },
       position: { x: 1, y: 1 },
     },
   ];

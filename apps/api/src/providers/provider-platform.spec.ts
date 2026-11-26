@@ -1,41 +1,59 @@
-import { ConfigService } from '@nestjs/config';
 import { ProviderRegistry } from './provider-registry';
 import { ModelsService } from './models.service';
 import { ProviderError, withProviderRetries } from './provider-error';
 import { nodeRegistry, executionHash } from '@hiveflow/shared';
-it('lists configured mocks and unavailable adapters, and resolves a changed default before hashing', async () => {
+it('lists configured real providers and unavailable adapters, and requires explicit model selection before hashing', async () => {
   const registry = new ProviderRegistry();
   for (const kind of ['image', 'llm', 'tts', 'video'] as const)
-    registry.register(kind, kind === 'video' ? 'mock-video' : 'mock', {
-      id: 'mock',
+    registry.register(kind, kind === 'video' ? 'seedance' : 'openrouter', {
+      id: 'openrouter',
     });
-  const config = new ConfigService({ DEFAULT_IMAGE_MODEL: 'mock-image' });
-  const service = new ModelsService(config, registry);
+  const service = new ModelsService(registry);
   expect(
     service
       .list()
       .filter(
-        (model) => model.id.startsWith('mock-') && model.status === 'active',
+        (model) => model.provider === 'openrouter' && model.status === 'active',
       )
       .every((model) => model.available),
   ).toBe(true);
   expect(
-    service.list().find((model) => model.id === 'image-studio'),
+    service.list().find((model) => model.id === 'kling-3-0'),
   ).toMatchObject({
     available: false,
     unavailableReason: expect.stringContaining('API key'),
   });
+  expect(
+    service.list().some((model) => /^(mock|custom)/.test(model.provider)),
+  ).toBe(false);
+  expect(
+    new ModelsService(new ProviderRegistry())
+      .list()
+      .some((model) => model.available),
+  ).toBe(false);
   const node = {
     id: crypto.randomUUID(),
     type: nodeRegistry.image_generator.type,
     position: { x: 0, y: 0 },
-    params: { ...nodeRegistry.image_generator.defaultParams },
+    params: {
+      ...nodeRegistry.image_generator.defaultParams,
+      model: 'bytedance-seed/seedream-4.5',
+    },
   };
   const inputs = { ports: {} };
   const first = service.prepare(node, inputs);
-  config.set('DEFAULT_IMAGE_MODEL', 'mock-image-compact');
-  const second = service.prepare(node, inputs);
-  expect(second.model).toBe('mock-image-compact');
+  const second = service.prepare(
+    {
+      ...node,
+      params: { ...node.params, model: 'bytedance-seed/seedream-5-0-pro' },
+    },
+    inputs,
+  );
+  for (const model of ['', 'auto'])
+    expect(() =>
+      service.prepare({ ...node, params: { ...node.params, model } }, inputs),
+    ).toThrow('Choose a model');
+  expect(second.model).toBe('bytedance-seed/seedream-5-0-pro');
   expect(await executionHash(node.type, first.params, inputs)).not.toBe(
     await executionHash(node.type, second.params, inputs),
   );

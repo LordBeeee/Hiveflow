@@ -10,7 +10,10 @@ function setup() {
     durationMs: 1200,
   });
   const registry = new ProviderRegistry();
-  registry.register('tts', 'mock', { id: 'mock', ...{ synthesize } });
+  registry.register('tts', 'openrouter', {
+    id: 'openrouter',
+    ...{ synthesize },
+  });
   const asset = {
     id: crypto.randomUUID(),
     url: '/api/assets/audio',
@@ -27,8 +30,9 @@ function setup() {
     spaceId: crypto.randomUUID(),
     params: {
       ...nodeRegistry.voiceover.defaultParams,
-      model: 'mock-tts',
+      model: 'elevenlabs/eleven-v4',
       script: 'Local script',
+      voice: 'george',
     },
     signal: new AbortController().signal,
   };
@@ -44,10 +48,10 @@ it('uses connected script, resolves provider settings and stores audio metadata'
   });
   expect(synthesize.mock.calls[0][0]).toEqual({
     text: 'Assistant narration',
-    voice: 'calm',
+    voice: 'george',
     language: 'auto',
     speed: 1,
-    model: 'mock-tts',
+    model: 'elevenlabs/eleven-v4',
   });
   expect(assets.store).toHaveBeenCalledWith(context.spaceId, {
     kind: 'audio',

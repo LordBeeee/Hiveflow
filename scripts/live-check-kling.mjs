@@ -19,13 +19,12 @@ const { default: httpModule } =
   await import('../apps/api/dist/providers/provider-http.js');
 const { default: errors } =
   await import('../apps/api/dist/providers/kling-error.js');
-const configured = process.env.DEFAULT_VIDEO_MODEL;
-const model =
-  configured && !configured.startsWith('mock-')
-    ? shared.klingCatalog.find((row) => row.id === configured)
-    : shared.klingCatalog[0];
+const configured = process.env.LIVE_CHECK_VIDEO_MODEL;
+const model = configured
+  ? shared.klingCatalog.find((row) => row.id === configured)
+  : shared.klingCatalog[0];
 if (!model) {
-  console.error('Choose a Kling catalog ID for DEFAULT_VIDEO_MODEL.');
+  console.error('Choose a Kling catalog ID for LIVE_CHECK_VIDEO_MODEL.');
   process.exit(1);
 }
 const signal = AbortSignal.timeout(15 * 60 * 1000);

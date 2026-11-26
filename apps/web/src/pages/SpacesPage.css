@@ -99,17 +99,6 @@ body:has(.spaces-page) {
   margin-top: auto;
 }
 
-.workspace-header {
-  height: 76px;
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 17px;
-  padding: 0 26px;
-  border-radius: 20px 20px 0 0;
-  background: #fff;
-}
-
 .workspace-switcher {
   position: fixed;
   top: 99px;
@@ -218,11 +207,11 @@ body:has(.spaces-page) {
 }
 
 .spaces-page .spaces-content {
-  min-height: calc(100dvh - 120px);
+  min-height: calc(100dvh - 44px);
   max-width: none;
   margin: 0;
-  padding: 36px 42px 60px;
-  border-radius: 0 0 20px 20px;
+  padding: 28px 42px 60px;
+  border-radius: 20px;
   background: #fff;
 }
 
@@ -232,12 +221,6 @@ body:has(.spaces-page) {
   justify-content: space-between;
   gap: 24px;
   margin: 0 0 28px;
-}
-
-.spaces-breadcrumb {
-  margin-bottom: 14px;
-  color: #999;
-  font-size: 12px;
 }
 
 .spaces-page .spaces-heading h1 {
@@ -565,9 +548,6 @@ body:has(.spaces-page) {
 }
 
 @media (max-width: 480px) {
-  .workspace-header {
-    padding-right: 12px;
-  }
   .workspace-popover {
     width: min(280px, calc(100vw - 90px));
   }

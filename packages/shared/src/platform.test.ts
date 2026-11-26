@@ -78,11 +78,11 @@ it('enforces the output id/type convention for every registered node', () => {
     for (const port of node.outputs) expect(port.id).toBe(port.type);
 });
 it('coerces model-dependent values atomically and resets options', () => {
-  const compact = findModel('mock-image-compact')!;
+  const compact = findModel('bytedance-seed/seedream-5-0-pro')!;
   const result = coerceParamsForModel(
     'image_generator',
     {
-      aspectRatio: '3:4',
+      aspectRatio: 'unsupported',
       resolution: '4K',
       count: 4,
       options: { quality: 'old' },
@@ -94,45 +94,51 @@ it('coerces model-dependent values atomically and resets options', () => {
     aspectRatio: '1:1',
     resolution: '1K',
     count: 1,
-    options: { quality: 'standard', seed: 0, softLight: true },
+    options: { output_format: 'png', seed: 0 },
   });
   expect(result.notices).toHaveLength(3);
   expect(
     coerceParamsForModel(
       'video',
-      { duration: 8, aspectRatio: '4:3' },
-      findModel('mock-video')!,
+      { duration: 3, aspectRatio: 'unsupported' },
+      findModel('seedance-2-0')!,
     ).params,
-  ).toMatchObject({ duration: 10, aspectRatio: '16:9' });
+  ).toMatchObject({ duration: 4, aspectRatio: '16:9' });
   expect(
     coerceParamsForModel(
       'voice',
       { voice: 'missing', speed: 9, language: 'xx' },
-      findModel('mock-tts')!,
+      findModel('elevenlabs/eleven-v4')!,
     ).params,
-  ).toMatchObject({ voice: 'calm', speed: 1.5, language: 'auto' });
-  expect(() => validateModelParams({ aspectRatio: '3:4' }, compact)).toThrow(
-    'does not support',
-  );
+  ).toMatchObject({ voice: 'george', speed: 1, language: 'auto' });
+  expect(() =>
+    validateModelParams({ aspectRatio: 'unsupported' }, compact),
+  ).toThrow('does not support');
   expect(() =>
     validateModelParams({ options: { bad: true } }, compact),
   ).toThrow('Unknown model option');
 });
-it('resolves auto and aliases to concrete ids and rejects removed/unavailable models', () => {
+it('resolves aliases and rejects automatic selection and rejects removed/unavailable models', () => {
   const models = modelCatalog.map((model) => ({
     ...model,
-    available: model.provider === 'mock' && model.status !== 'removed',
-    isDefault: model.id === 'mock-image',
+    aliases:
+      model.id === 'bytedance-seed/seedream-4.5'
+        ? ['seedream-alias']
+        : model.aliases,
+    available: model.provider === 'openrouter' && model.status !== 'removed',
   }));
-  expect(selectModel('auto', 'image', models).id).toBe('mock-image');
-  expect(selectModel('mock-image-v1', 'image', models).id).toBe('mock-image');
-  expect(() => selectModel('mock-image-legacy', 'image', models)).toThrow(
+  for (const id of ['', 'auto'])
+    expect(() => selectModel(id, 'image', models)).toThrow('Choose a model');
+  expect(selectModel('seedream-alias', 'image', models).id).toBe(
+    'bytedance-seed/seedream-4.5',
+  );
+  expect(() => selectModel('retired-image', 'image', models)).toThrow(
     'choose another model',
   );
   expect(() => selectModel('missing', 'image', models)).toThrow(
     'choose another model',
   );
-  expect(() => selectModel('image-studio', 'image', models)).toThrow(
+  expect(() => selectModel('unconfigured-image', 'image', models)).toThrow(
     'choose another model',
   );
 });
@@ -171,23 +177,38 @@ it('locks the port hash format with fixed vectors and resolved model ids', async
   expect(
     await executionHash(
       'image_generator',
-      { prompt: 'cabin', model: 'mock-image', options: {}, count: 1 },
+      {
+        prompt: 'cabin',
+        model: 'bytedance-seed/seedream-4.5',
+        options: {},
+        count: 1,
+      },
       inputs,
     ),
-  ).toBe('59e367999339525434fb5334f209e5f9c7cbb092694ec94c387f6c62ffdb6c23');
+  ).toBe('608659f051b68fd9369a7bdc11cc9c44573635e4e4b6ef6fef15f99d19f41dc0');
   expect(
     await executionHash(
       'image_generator',
-      { prompt: 'cabin', model: 'mock-image-compact', options: {}, count: 1 },
+      {
+        prompt: 'cabin',
+        model: 'bytedance-seed/seedream-5-0-pro',
+        options: {},
+        count: 1,
+      },
       inputs,
     ),
-  ).toBe('b6491fa851aef36738ec05325d699e1fc8891d8dba0282867f9ff819c735d2ee');
+  ).toBe('d8ec0be691d97afc13af36356ce06b943a6e4cbd143e0ce037c38a871fd8d25e');
   inputs.ports.references[0].assetId = 'different-id';
   expect(
     await executionHash(
       'image_generator',
-      { count: 1, options: {}, model: 'mock-image', prompt: 'cabin' },
+      {
+        count: 1,
+        options: {},
+        model: 'bytedance-seed/seedream-4.5',
+        prompt: 'cabin',
+      },
       inputs,
     ),
-  ).toBe('59e367999339525434fb5334f209e5f9c7cbb092694ec94c387f6c62ffdb6c23');
+  ).toBe('608659f051b68fd9369a7bdc11cc9c44573635e4e4b6ef6fef15f99d19f41dc0');
 });

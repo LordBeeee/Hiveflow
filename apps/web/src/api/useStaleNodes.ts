@@ -4,7 +4,6 @@ import {
   topoSort,
   resolveNodeInputs,
   nodeRegistry,
-  modelCatalog,
   selectModel,
   validateModelParams,
   type AvailableModel,
@@ -23,11 +22,7 @@ export async function computeStaleNodes(
   latest: Record<string, Pick<NodeRun, 'inputHash' | 'waiting' | 'output'>>,
   successes: Record<string, Pick<NodeRun, 'inputHash' | 'waiting' | 'output'>>,
   assetHash: (id: string) => Promise<string>,
-  models: readonly AvailableModel[] = modelCatalog.map((model) => ({
-    ...model,
-    available: model.provider.startsWith('mock') && model.status !== 'removed',
-    isDefault: model.id === `mock-${model.kind}`,
-  })),
+  models: readonly AvailableModel[] = [],
   registry: NodeDefinitions = nodeRegistry,
 ) {
   const stale: Record<string, boolean> = {},
@@ -50,7 +45,7 @@ export async function computeStaleNodes(
         let params = definition.paramsSchema.parse(node.params);
         if (definition.modelKind) {
           const model = selectModel(
-            String(params.model ?? 'auto'),
+            String(params.model ?? ''),
             definition.modelKind,
             models,
           );

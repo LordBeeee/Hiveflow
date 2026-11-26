@@ -20,10 +20,10 @@ function setup() {
   });
   const registry = new ProviderRegistry();
   for (const kind of ['image', 'llm', 'tts', 'video'] as const)
-    registry.register(kind, kind === 'video' ? 'mock-video' : 'mock', {
-      id: 'mock',
+    registry.register(kind, kind === 'video' ? 'seedance' : 'openrouter', {
+      id: 'openrouter',
     });
-  const models = new ModelsService(config, registry);
+  const models = new ModelsService(registry);
   const resolver = new InputResolver(
     {
       findOne: jest.fn().mockResolvedValue(null),
@@ -47,7 +47,10 @@ function setup() {
   const text = node('text');
   text.params.value = 'A calm lake';
   const assistant = node('assistant');
+  assistant.params.model = 'google/gemini-4-neon';
   const voice = node('voiceover');
+  voice.params.model = 'elevenlabs/eleven-v4';
+  voice.params.voice = 'george';
   const graph: SpaceGraph = {
     schemaVersion: 1,
     nodes: [text, assistant, voice],
@@ -71,24 +74,24 @@ function setup() {
   };
   return { service, cache, graph, text, assistant, voice };
 }
-it('reserves a conservative bound for unknown outputs and freezes resolved Auto models', async () => {
+it('reserves a conservative bound for unknown outputs and preserves explicitly selected models', async () => {
   const { service, graph, assistant, voice } = setup();
   const result = await service.plan(crypto.randomUUID(), graph);
   expect(result.estimate).toMatchObject({
     providerNodes: 2,
     cachedNodes: 0,
-    units: 6,
+    units: 50.5,
     upperBound: true,
   });
   expect(
     result.graph.nodes.find((node) => node.id === assistant.id)!.params.model,
-  ).toBe('mock-llm');
+  ).toBe('google/gemini-4-neon');
   expect(
     result.graph.nodes.find((node) => node.id === voice.id)!.params.model,
-  ).toBe('mock-tts');
+  ).toBe('elevenlabs/eleven-v4');
   expect(
     graph.nodes.find((node) => node.id === assistant.id)!.params.model,
-  ).toBe('auto');
+  ).toBe('google/gemini-4-neon');
 });
 it('uses cached upstream text for exact character costs and cached outputs cost zero', async () => {
   const { service, cache, graph, assistant } = setup();
@@ -99,7 +102,7 @@ it('uses cached upstream text for exact character costs and cached outputs cost 
   expect(quote.estimate).toMatchObject({
     providerNodes: 1,
     cachedNodes: 1,
-    units: 0.005,
+    units: 0.04,
     upperBound: false,
   });
   cache.find.mockResolvedValue({ output: { text: 'hello' } });
@@ -120,3 +123,13 @@ it('fails closed on cache/database errors and rejects configured limits', async 
     'estimated credits',
   );
 });
+
+it.each(['', 'auto'])(
+  'rejects batch admission when a node has no explicit model (%s)',
+  async (model) => {
+    const { service, graph, assistant } = setup();
+    assistant.params.model = model;
+    const { estimate } = await service.plan(crypto.randomUUID(), graph);
+    expect(() => service.enforce(estimate)).toThrow('Choose a model');
+  },
+);
